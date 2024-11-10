@@ -136,6 +136,19 @@ struct Datum{
     Datum(int e, int h, int n){ev=e; honap=h; nap=n;}
     Datum(){ev=0; honap=0; nap=0;}
 
+    int toInt(){return ev*10000+honap*100+nap;}
+    Datum fromInt(int d){
+        Datum datum; datum.ev=d/10000;
+        datum.honap=(d%10000)/100;
+        datum.nap=d%100;
+        return datum;
+    }
+
+    void setInt(int d){ev=d/10000;
+        honap=(d%10000)/100;
+        nap=d%100;
+    }
+
     string toString(){
         stringstream ss; ss<<ev<<" "<<honap<<" "<<nap;
         return ss.str();
@@ -178,9 +191,9 @@ struct Reszveny{
 };
 
 struct ReszvenyGPU{
-    vector<float*> mozgoatlagokAtlag;
-    vector<int*> mozgoatlagokDatum;
-    static int N;
+    vector< vector<float> > mozgoatlagokAtlag;
+    vector< vector<int > > mozgoatlagokDatum;
+    int N;
 };
 
 /// Betölti a fájlokból a részvények adatait
@@ -541,9 +554,11 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
     ///return 0;
     Pelda pelda;
     int itrCnt = 0, itrCnt2 = 0, itrCnt3 = 0;
-    for (int i=0;i<reszvenyek.size(); i++){
+    const int rs = reszvenyek.size();
+    for (int i=0;i<rs; i++){
         ///cout<<"R"<<i<<endl;
-        for (int k=2; k<reszvenyek[i].mozgoatlag[params.m2].atlag.size(); k++){
+        const int rm = reszvenyek[i].mozgoatlag[params.m2].atlag.size();
+        for (int k=2; k<rm; k++){
             itrCnt++;
             /// megvizsgálja hogy az adott nap megfelelő-e
             int ev = reszvenyek[i].mozgoatlag[params.m2].datum[k].ev - 2000;
@@ -750,9 +765,246 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
     ///cout<<"CALMA "<<ert<<endl;
     score.atlagosProfit=tempSzum/max(1.0f,tempCnt);
     score.teljes=napiErtek;
-    ///cout<<"TIME: "<<endtime-midtime2<<" "<<midtime2-midtime<<" "<<midtime-stime<<endl;
+    if(ert==-2)cout<<"TIME: "<<endtime-midtime2<<" "<<midtime2-midtime<<" "<<midtime-stime<<endl;
     return 0;
 }
+
+int getScoreGPU(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, vector<Datum>& osszesDatum, int ert){
+    score.clrt();
+    clock_t stime = clock();
+    int MOZGO_ATLAG_MIN_MERET = 50;
+
+
+    Datum kezdo(2014,8,1); /// 2009, 8
+    vector<vector<int>> tores_cnt_per_year; tores_cnt_per_year.resize(25,vector<int> (200,0));
+    vector<vector<float>> tores_szum_per_year_pre; tores_szum_per_year_pre.resize(25,vector<float> (200,0));
+    vector<vector<vector<float>>> tores_szum_per_year;
+    for (int i=0; i<20; i++) tores_szum_per_year.push_back(tores_szum_per_year_pre);
+    //for (int i=0; i<)
+
+    bool debug = false;
+
+    vector<Datum> osszesEset; osszesEset.reserve(100000);
+    vector<Pelda> osszesPelda; osszesPelda.reserve(100000);
+    ///cout<<"ALMA "<<ert<<endl;
+    ///return 0;
+    Pelda pelda;
+    int itrCnt = 0, itrCnt2 = 0, itrCnt3 = 0;
+    const int rs = reszvenyek.size();
+    for (int i=0;i<rs; i++){
+        ///cout<<"R"<<i<<endl;
+        const int rm = reszvenyek[i].mozgoatlag[params.m2].atlag.size();
+        for (int k=2; k<rm; k++){
+            itrCnt++;
+            /// megvizsgálja hogy az adott nap megfelelő-e
+            int ev = reszvenyek[i].mozgoatlag[params.m2].datum[k].ev - 2000;
+            if (ev<0) continue;
+            if (k+7>=reszvenyek[i].mozgoatlag[params.m2].atlag.size()) continue;
+
+            itrCnt2++;
+            /// ???
+            /** Nem kell most
+            /// dupla k-1 es eredmény érdekes volt
+            if (reszvenyek[i].mozgoatlag[19].atlag[k-1]<reszvenyek[i].mozgoatlag[19].atlag[k] ==
+                reszvenyek[i].mozgoatlag[13].atlag[k-1+6]<reszvenyek[i].mozgoatlag[13].atlag[k+6])
+            {
+                torolt=true;
+                continue;
+            }
+            */
+
+            /// törés2
+
+            float a1 = reszvenyek[i].mozgoatlag[params.m2].atlag[k-2];
+            float a2 = reszvenyek[i].mozgoatlag[params.m2].atlag[k-1];
+            float a3 = reszvenyek[i].mozgoatlag[params.m2].atlag[k-0];
+            float b1 = a2-a1, b2 = a3-a2;
+
+            int im1 = params.m2-params.m1;
+            int im3 = params.m2-params.m3;
+
+            bool V1 = false, V2 = true;
+            /// V1
+            if (V1){
+                if (!params.toresAlatt){
+                    if (b2<=0 || b1<=0 || b1<b2) continue;
+                    if (b1-b2<=a2*params.tores) continue;
+                } else {
+                    if (b2>0 || b1>0 || b1>b2) continue;
+                    if (b1-b2<a2*params.tores) continue;
+                }
+            }
+
+            /// V2
+            if (V2){
+                if ((b2<=0 || b1<=0 || b1<b2) && (b2>0 || b1>0 || b1>b2)) continue;
+                if (!params.toresAlatt){
+                    if (b1-b2<=a2*params.tores) continue;
+                } else {
+                    if (b1-b2>=a2*params.tores) continue;
+                }
+            }
+
+            if (k+im3-1<0) continue;
+
+            /// mozgó átlagok közötti növekvő sorrend check
+            float ma1=reszvenyek[i].mozgoatlag[params.m1].atlag[k+im1];
+            float ma2=reszvenyek[i].mozgoatlag[params.m2].atlag[k+0];
+            float ma3=reszvenyek[i].mozgoatlag[params.m3].atlag[k+im3];
+
+            if (params.ms==0) {if (!chkSorrend(ma3,ma2,ma1)) continue;}
+            else if (params.ms==1) {if (!chkSorrend(ma3,ma1,ma2)) continue;}
+            else if (params.ms==2) {if (!chkSorrend(ma2,ma1,ma3)) continue;}
+            else if (params.ms==3) {if (!chkSorrend(ma2,ma3,ma1)) continue;}
+            else if (params.ms==4) {if (!chkSorrend(ma1,ma3,ma2)) continue;}
+            else if (params.ms==5) {if (!chkSorrend(ma1,ma2,ma3)) continue;}
+
+            /// mozgóátlagok maguk növekvő/csökkenő
+            if (params.mi==0){
+                if (ma3-reszvenyek[i].mozgoatlag[params.m3].atlag[k+im3-1] <0) continue;
+                if (ma1-reszvenyek[i].mozgoatlag[params.m1].atlag[k+im1-1] <0) continue;
+            }
+            else if (params.mi==1){
+                if (ma3-reszvenyek[i].mozgoatlag[params.m3].atlag[k+im3-1] >=0) continue;
+                if (ma1-reszvenyek[i].mozgoatlag[params.m1].atlag[k+im1-1] <0) continue;
+            }
+            else if (params.mi==2){
+                if (ma3-reszvenyek[i].mozgoatlag[params.m3].atlag[k+im3-1] <0) continue;
+                if (ma1-reszvenyek[i].mozgoatlag[params.m1].atlag[k+im1-1] >=0) continue;
+            }
+            else if (params.mi==3){
+                if (ma3-reszvenyek[i].mozgoatlag[params.m3].atlag[k+im3-1] >=0) continue;
+                if (ma1-reszvenyek[i].mozgoatlag[params.m1].atlag[k+im1-1] >=0) continue;
+            }
+
+
+            itrCnt3++;
+
+
+            ///cout<<score.alkalmakEvente.size()<<" "<<tores_cnt_per_year[ev][params.m2]<<endl;
+            tores_cnt_per_year[ev][params.m2]++;
+            score.alkalmakEvente[ev]++;
+            ///continue;
+            pelda.stockName=reszvenyek[i].nev; pelda.datum=reszvenyek[i].mozgoatlag[params.m2].datum[k];
+            pelda.reszvenyIdx=i; pelda.mozgoatlagIdx=k;
+            osszesPelda.push_back(pelda);
+            osszesEset.push_back(reszvenyek[i].mozgoatlag[params.m2].datum[k]);
+            //xnapja=0;
+
+        }
+    }
+    ///cout<<"ITR: "<<itrCnt<<" "<<itrCnt2<<" "<<itrCnt3<<endl;
+
+    if (itrCnt3>50000) score;
+    clock_t midtime = clock();
+    ///cout<<"BALMA "<<ert<<endl;
+    ///return 0;
+
+    ///set<Datum> datumok = convertToSet(osszesEset);
+    sort(osszesPelda.begin(),osszesPelda.end());
+    list<Pelda> osszesPeldaList;
+    osszesPeldaList.insert(osszesPeldaList.end(),osszesPelda.begin(),osszesPelda.end());
+
+    vector<float> napiErtek;
+    napiErtek.resize(osszesDatum.size(),100.0f);
+
+    int ev = 2000;
+    float tempSzum = 0, tempCnt = 0;
+    vector<float> eviErtekek;
+    vector<vector<float>> eviNapok;
+    ///cout<<"B2ALMA "<<ert<<endl;
+    clock_t midtime2 = clock();
+///    if (ert==-1) score.osszesPelda=osszesPelda;
+
+    float peldasNapCnt=0;
+    for (int i=0; i<osszesDatum.size(); i++){
+        ///if (i%100==0)cout<<"O"<<i<<endl;
+        ///continue;
+        if (i+1<napiErtek.size())
+            napiErtek[i+1]=napiErtek[i];
+        if (osszesDatum[i].ev>ev){
+            ev=osszesDatum[i].ev;
+            ///napiErtek[i+0]=100;
+            ///napiErtek[i+1]=100;
+            score.evVegiek[ev-2001]=eviErtekek.back();
+            eviNapok.push_back(eviErtekek);
+            eviErtekek.clear();
+        }
+        vector<float> ertekek;
+        ///if (datumok.find(osszesDatum[i])==datumok.end()){eviErtekek.push_back(napiErtek[i]); continue;}
+        ///for (int j=0; j<osszesPelda.size(); j++){
+        bool vanPelda = false;
+        while(osszesPeldaList.front().datum==osszesDatum[i]){
+            vanPelda=true;
+            ///if (osszesPelda[j].datum==osszesDatum[i]){
+                int stockIdx = osszesPeldaList.front().reszvenyIdx;
+                int mozgoAtlagIdx = osszesPeldaList.front().mozgoatlagIdx;
+                if (mozgoAtlagIdx+3>= reszvenyek[stockIdx].mozgoatlag[params.m2].zaras.size()) cout<<"ZZZZZZZ"<<endl;
+                bool felfele = params.buy;///reszvenyek[stockIdx].mozgoatlag[params.m2].atlag[mozgoAtlagIdx]>reszvenyek[stockIdx].mozgoatlag[params.m2].atlag[mozgoAtlagIdx-1];
+                int aznapiVetel = params.adasVeteliNapok; /// MELYIK METÓDUS
+                if (aznapiVetel==0){
+                    float aznapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx];
+                    float masnapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+1];
+                    if (felfele) ertekek.push_back(masnapiZaras/aznapiZaras-1.0f);
+                    else ertekek.push_back(-(masnapiZaras/aznapiZaras-1.0f));
+                } else if (aznapiVetel==1){
+                    float masnapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+1];
+                    float harmadnapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+2];
+                    if (felfele) ertekek.push_back(harmadnapiZaras/masnapiZaras-1.0f);
+                    else ertekek.push_back(-(harmadnapiZaras/masnapiZaras-1.0f));
+                } else if (aznapiVetel==2) {
+                    float harmadnapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+2];
+                    float negyednapZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+3];
+                    if (felfele) ertekek.push_back(negyednapZaras/harmadnapiZaras-1.0f);
+                    else ertekek.push_back(-(negyednapZaras/harmadnapiZaras-1.0f));
+                } else if (aznapiVetel==3){
+                    float aznapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx];
+                    float harmadnapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+2];
+                    if (felfele) ertekek.push_back(harmadnapiZaras/aznapiZaras-1.0f);
+                    else ertekek.push_back(-(harmadnapiZaras/aznapiZaras-1.0f));
+                } else if (aznapiVetel==4) {
+                    float masnapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+1];
+                    float negyednapZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+3];
+                    if (felfele) ertekek.push_back(negyednapZaras/masnapiZaras-1.0f);
+                    else ertekek.push_back(-(negyednapZaras/masnapiZaras-1.0f));
+                } else if (aznapiVetel==5) {
+                    float aznapiZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx];
+                    float negyednapZaras = reszvenyek[stockIdx].mozgoatlag[params.m2].zaras[mozgoAtlagIdx+3];
+                    if (felfele) ertekek.push_back(negyednapZaras/aznapiZaras-1.0f);
+                    else ertekek.push_back(-(negyednapZaras/aznapiZaras-1.0f));
+                }
+            ///}
+            osszesPeldaList.pop_front();
+        }
+        if (vanPelda) peldasNapCnt++;
+        int oszto = ertekek.size();
+        float foszto = oszto;
+        score.egyNapMaximum=max(oszto,score.egyNapMaximum);
+        ///cout<<score.egyNapMaximum<<endl;
+
+        for (int j=0; j<oszto; j++){
+            float tempSum = 0;
+            if (i+1<napiErtek.size()){
+                napiErtek[i+1]+=napiErtek[i]*ertekek[j]/foszto;
+                tempSzum+=ertekek[j];
+                tempSum+=ertekek[j];;
+                tempCnt++;
+            }
+            score.atlagosNapiProfit+=tempSum/foszto;
+        }
+        eviErtekek.push_back(napiErtek[i]);
+    }
+    score.atlagosNapiProfit/=max(1.0f,peldasNapCnt);
+    clock_t endtime=clock();
+    score.evVegiek[24]=eviErtekek.back();
+    eviNapok.push_back(eviErtekek);
+    ///cout<<"CALMA "<<ert<<endl;
+    score.atlagosProfit=tempSzum/max(1.0f,tempCnt);
+    score.teljes=napiErtek;
+    if(ert==-2)cout<<"TIME: "<<endtime-midtime2<<" "<<midtime2-midtime<<" "<<midtime-stime<<endl;
+    return 0;
+}
+
 
 vector<Datum> getOsszesDatum(vector<Reszveny>& reszvenyek){
     vector<Datum> osszesDatum;
@@ -775,13 +1027,58 @@ void runTest(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
 
 }
 
+vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>& osszesDatum){
+    vector<ReszvenyGPU> ret;
+    //vector<float> atlag(osszesDatum.size(),0);
+    const int MOZGO_CNT = 50;
+    for (int i=0; i<reszvenyek.size(); i++){
+        ///cout<<"I "<<i<<" "<<reszvenyek[i].nev<<endl;
+        ReszvenyGPU rgpu;
+        rgpu.mozgoatlagokAtlag.resize(MOZGO_CNT,vector<float>(osszesDatum.size()));
+        rgpu.mozgoatlagokDatum.resize(MOZGO_CNT,vector<int>(osszesDatum.size()));
+        rgpu.N=osszesDatum.size();
+        for (int j=0; j<MOZGO_CNT; j++){
+            ///cout<<"J "<<j<<endl;
+            int midx = 0;
+            //rgpu.mozgoatlagokAtlag[j].resize(osszesDatum.size());
+            //rgpu.mozgoatlagokDatum[j].resize(osszesDatum.size());
+            for (int z=0; z<osszesDatum.size(); z++){
+                //cout<<"Z "<<z<<endl;
+                ///if (i==2 && j==25 && z==1425) cout<<"ALMA "<<reszvenyek[i].nev<<endl;
+                if (reszvenyek[i].mozgoatlag[j].datum[midx]<osszesDatum[z]){
+                    z--;
+                    midx++;
+                    continue;
+                }
+                if (osszesDatum[z]<reszvenyek[i].mozgoatlag[j].datum[midx]){
+                    rgpu.mozgoatlagokAtlag[j][z]=0;
+                    rgpu.mozgoatlagokDatum[j][z]=0;
+                    continue;
+                }
+                ///if (i==2 && j==25 && z==1425) cout<<"ALMA2"<<endl;
+                ///cout<<"ok2"<<endl;
+                rgpu.mozgoatlagokAtlag[j][z]=reszvenyek[i].mozgoatlag[j].atlag[midx];
+                rgpu.mozgoatlagokDatum[j][z]=reszvenyek[i].mozgoatlag[j].datum[midx].toInt();
+                midx++;
+            }
+        }
+        ret.push_back(rgpu);
+    }
+
+    return ret;
+}
+
 int main(){
     clock_t fullT = clock();
-    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("amd.txt","data");
+    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("ossz24_09.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
     vector<Datum> osszesDatum = getOsszesDatum(reszvenyek);
+    clock_t time0 = clock();
+    cout<<"DONE"<<endl;
+    vector<ReszvenyGPU> reszvenyekGPU = getReszvenyekGPU(reszvenyek, osszesDatum);
+    clock_t time01 = clock();
 
-    bool speedTest = false;
+    bool speedTest = true;
     if (speedTest){
         Parameterek params; params.m1=14; params.m2=20; params.m3=50;
         params.adasVeteliNapok=1;
@@ -799,7 +1096,8 @@ int main(){
         getScore(reszvenyek,params,score,osszesDatum,-2);
         getScore(reszvenyek,params,score,osszesDatum,-2);
         getScore(reszvenyek,params,score,osszesDatum,-2);
-        cout<<clock()-time1<<" "<<clock()-fullT<<endl;
+        cout<<clock()-time1<<" "<<clock()-fullT<<" "<<time01-time0<<" "<<time0-fullT<<endl;
+        cout<<reszvenyekGPU[2].mozgoatlagokAtlag[25][1425]<<endl;
         cout<<score.evVegiek[24]<<endl;
 
         int input;

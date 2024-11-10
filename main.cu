@@ -177,6 +177,12 @@ struct Reszveny{
     vector<MozgoAtlag> mozgoatlag;
 };
 
+struct ReszvenyGPU{
+    vector<float*> mozgoatlagokAtlag;
+    vector<int*> mozgoatlagokDatum;
+    static int N;
+};
+
 /// Betölti a fájlokból a részvények adatait
 vector<Reszveny> reszvenyekBetoltese(vector<string> fajlnevek){
     vector<Reszveny> reszvenyek;
@@ -535,9 +541,11 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
     ///return 0;
     Pelda pelda;
     int itrCnt = 0, itrCnt2 = 0, itrCnt3 = 0;
-    for (int i=0;i<reszvenyek.size(); i++){
+    const int rs = reszvenyek.size();
+    for (int i=0;i<rs; i++){
         ///cout<<"R"<<i<<endl;
-        for (int k=2; k<reszvenyek[i].mozgoatlag[params.m2].atlag.size(); k++){
+        const int rm = reszvenyek[i].mozgoatlag[params.m2].atlag.size();
+        for (int k=2; k<rm; k++){
             itrCnt++;
             /// megvizsgálja hogy az adott nap megfelelő-e
             int ev = reszvenyek[i].mozgoatlag[params.m2].datum[k].ev - 2000;
@@ -744,7 +752,7 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
     ///cout<<"CALMA "<<ert<<endl;
     score.atlagosProfit=tempSzum/max(1.0f,tempCnt);
     score.teljes=napiErtek;
-    ///cout<<"TIME: "<<endtime-midtime2<<" "<<midtime2-midtime<<" "<<midtime-stime<<endl;
+    if(ert==-2)cout<<"TIME: "<<endtime-midtime2<<" "<<midtime2-midtime<<" "<<midtime-stime<<endl;
     return 0;
 }
 
@@ -769,11 +777,22 @@ void runTest(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
 
 }
 
+vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>& osszesDatum){
+    vector<ReszvenyGPU> ret;
+    for (int i=0; i<reszvenyek.size(); i++){
+
+    }
+
+    return ret;
+}
+
 int main(){
     clock_t fullT = clock();
     vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("ossz24_09.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
     vector<Datum> osszesDatum = getOsszesDatum(reszvenyek);
+
+    vector<ReszvenyGPU> reszvenyekGPU = getReszvenyekGPU(reszvenyek, osszesDatum);
 
     bool speedTest = true;
     if (speedTest){
@@ -964,7 +983,8 @@ int main(){
     clock_t t2 = clock();
     clock_t t3 = clock();
     ofstream ofile("nalassuk.txt");
-    for (size_t i=28552601; i<parameterek.size();){
+    int offSet = 0;
+    for (size_t i=offSet; i<parameterek.size();){
         int savedI = i;
         for (int j=0; j<thCnt; j++){
             szalak[j] = thread(getScore,ref(reszvenyek),ref(parameterek[i]),ref(scores[j]),ref(osszesDatum),j);
@@ -983,7 +1003,7 @@ int main(){
                 szalak[j].join();
             //if ((savedI+j)%1000==0)
             if (clock()-t2>=5000){
-                cout<<savedI+j<<" "<<clock()-t2<<" i "<<ts<<" - "<<(float)(clock()-t3)/(float)(savedI+j-28552601)<<endl;
+                cout<<savedI+j<<" "<<clock()-t2<<" i "<<ts<<" - "<<(float)(clock()-t3)/(float)(savedI+j-offSet)<<endl;
                 t2=clock();
             }
             //t2=clock();

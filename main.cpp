@@ -924,7 +924,7 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
     sort(osszesPeldaGPU.begin(),osszesPeldaGPU.end());
     list<PeldaGPU> osszesPeldaList;
     osszesPeldaList.insert(osszesPeldaList.end(),osszesPeldaGPU.begin(),osszesPeldaGPU.end());
-    ///cout<<osszesPeldaGPU.size()<<" "<<osszesPeldaList.size()<<endl;
+    cout<<osszesPeldaGPU.size()<<" "<<osszesPeldaList.size()<<endl;
 
     vector<float> napiErtek;
     napiErtek.resize(osszesDatum.size(),100.0f);
@@ -956,7 +956,7 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
         ///for (int j=0; j<osszesPelda.size(); j++){
         bool vanPelda = false;
         while(osszesPeldaList.front().mozgoatlagIdx==i){
-            ///cout<<osszesPeldaList.front().mozgoatlagIdx<<endl;
+            //cout<<osszesPeldaList.front().mozgoatlagIdx<<endl;
             vanPelda=true;
             ///if (osszesPelda[j].datum==osszesDatum[i]){
                 int stockIdx = osszesPeldaList.front().reszvenyIdx;
@@ -967,11 +967,13 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
                 if (aznapiVetel==0){
                     float aznapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx];
                     float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+1];
+                    if (aznapiZaras==0) cout<<"BAJ0: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+1<<endl;
                     if (felfele) ertekek.push_back(masnapiZaras/aznapiZaras-1.0f);
                     else ertekek.push_back(-(masnapiZaras/aznapiZaras-1.0f));
                 } else if (aznapiVetel==1){
                     float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+1];
                     float harmadnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+2];
+                    if (masnapiZaras==0) cout<<"BAJ0: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+2<<endl;
                     if (felfele) ertekek.push_back(harmadnapiZaras/masnapiZaras-1.0f);
                     else ertekek.push_back(-(harmadnapiZaras/masnapiZaras-1.0f));
                 }
@@ -1010,6 +1012,7 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
         for (int j=0; j<oszto; j++){
             float tempSum = 0;
             if (i+1<napiErtek.size()){
+                    ///cout<<ertekek[j]<<endl;
                 napiErtek[i+1]+=napiErtek[i]*ertekek[j]/foszto;
                 tempSzum+=ertekek[j];
                 tempSum+=ertekek[j];;
@@ -1098,7 +1101,7 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
 
 int main(){
     clock_t fullT = clock();
-    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("stocks.txt","data");
+    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("ossz24_09.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
     vector<Datum> osszesDatum = getOsszesDatum(reszvenyek);
     clock_t time0 = clock();
@@ -1121,7 +1124,7 @@ int main(){
         Score score;
 
         clock_t time1 = clock();
-        getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,-2,0);
+        getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,-2,3);
         ///cout<<reszvenyekGPU[0].mozgoatlagokAtlag[25][1425]<<endl;
         cout<<score.evVegiek[24]<<endl;
         getScore(reszvenyek,params,score,osszesDatum,-2);
@@ -1132,7 +1135,7 @@ int main(){
         cout<<score.evVegiek[24]<<endl;
         float toZ = score.evVegiek[24];
 
-        for (int zzz=0; zzz<100;zzz++){
+        for (int zzz=0; zzz<0;zzz++){
             getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,-2,zzz);
             if (toZ==score.evVegiek[24]){
                 cout<<zzz<<endl;

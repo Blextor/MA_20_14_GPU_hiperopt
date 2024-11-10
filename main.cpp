@@ -680,6 +680,7 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
     sort(osszesPelda.begin(),osszesPelda.end());
     list<Pelda> osszesPeldaList;
     osszesPeldaList.insert(osszesPeldaList.end(),osszesPelda.begin(),osszesPelda.end());
+    cout<<osszesPelda.size()<<" "<<osszesPeldaList.size()<<endl;
 
     vector<float> napiErtek;
     napiErtek.resize(osszesDatum.size(),100.0f);
@@ -864,6 +865,8 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
             float ma1=reszvenyekGPU[i].mozgoatlagokAtlag[params.m1][k];
             float ma2=reszvenyekGPU[i].mozgoatlagokAtlag[params.m2][k];
             float ma3=reszvenyekGPU[i].mozgoatlagokAtlag[params.m3][k];
+
+            if (a1==-1 || a2==-1 || a3==-1 || ma1==-1 || ma3==-1) continue;
             ///cout<<"J"<<k<<endl;
 
             if (params.ms==0) {if (!chkSorrend(ma3,ma2,ma1)) continue;}
@@ -938,6 +941,7 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
 ///    if (ert==-1) score.osszesPelda=osszesPelda;
 
     float peldasNapCnt=0;
+    int nulla=0;
     for (int i=0; i<osszesDatum.size(); i++){
         ///if (i%100==0)cout<<"O"<<i<<endl;
         ///continue;
@@ -967,15 +971,19 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
                 if (aznapiVetel==0){
                     float aznapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx];
                     float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+1];
-                    if (aznapiZaras==0) cout<<"BAJ0: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+1<<endl;
-                    if (felfele) ertekek.push_back(masnapiZaras/aznapiZaras-1.0f);
-                    else ertekek.push_back(-(masnapiZaras/aznapiZaras-1.0f));
+                    if (aznapiZaras!=-1 && masnapiZaras!=-1) {
+                    //if (aznapiZaras==0) cout<<"BAJ0: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+1<<endl;
+                        if (felfele) ertekek.push_back(masnapiZaras/aznapiZaras-1.0f);
+                        else ertekek.push_back(-(masnapiZaras/aznapiZaras-1.0f));
+                    }
                 } else if (aznapiVetel==1){
                     float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+1];
                     float harmadnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+2];
-                    if (masnapiZaras==0) cout<<"BAJ1: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+2<<endl;
-                    if (felfele) ertekek.push_back(harmadnapiZaras/masnapiZaras-1.0f);
-                    else ertekek.push_back(-(harmadnapiZaras/masnapiZaras-1.0f));
+                    //if (masnapiZaras==0) cout<<"BAJ1: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+2<<endl;
+                    if (harmadnapiZaras!=-1 && masnapiZaras!=-1) {
+                        if (felfele) ertekek.push_back(harmadnapiZaras/masnapiZaras-1.0f);
+                        else ertekek.push_back(-(harmadnapiZaras/masnapiZaras-1.0f));
+                    }
                 }
                 /*
                 else if (aznapiVetel==2) {
@@ -1012,7 +1020,8 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
         for (int j=0; j<oszto; j++){
             float tempSum = 0;
             if (i+1<napiErtek.size()){
-                    ///cout<<ertekek[j]<<endl;
+                ///if (ertekek[j]==0) cout<<ertekek[j]<<endl;
+                ///if (ertekek[j]==0) nulla++;
                 napiErtek[i+1]+=napiErtek[i]*ertekek[j]/foszto;
                 tempSzum+=ertekek[j];
                 tempSum+=ertekek[j];;
@@ -1022,6 +1031,8 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
         }
         eviErtekek.push_back(napiErtek[i]);
     }
+    ///cout<<"0: "<<nulla<<endl;
+
     score.atlagosNapiProfit/=max(1.0f,peldasNapCnt);
     clock_t endtime=clock();
     score.evVegiek[24]=eviErtekek.back();
@@ -1093,7 +1104,6 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
                 ///if (i==469 && j==20 && z==137) cout<<"PEKING3"<<endl;
                 rgpu.mozgoatlagokAtlag[j][z]=reszvenyek[i].mozgoatlag[j].atlag[midx];
                 rgpu.mozgoatlagokZaras[j][z]=reszvenyek[i].mozgoatlag[j].zaras[midx];
-                if (reszvenyek[i].mozgoatlag[j].zaras[midx]==0) cout<<"HIBA"<<endl;
                 rgpu.mozgoatlagokDatum[j][z]=reszvenyek[i].mozgoatlag[j].datum[midx].toInt();
                 midx++;
             }

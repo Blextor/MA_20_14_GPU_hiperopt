@@ -973,7 +973,7 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
                 } else if (aznapiVetel==1){
                     float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+1];
                     float harmadnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+2];
-                    if (masnapiZaras==0) cout<<"BAJ0: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+2<<endl;
+                    if (masnapiZaras==0) cout<<"BAJ1: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+2<<endl;
                     if (felfele) ertekek.push_back(harmadnapiZaras/masnapiZaras-1.0f);
                     else ertekek.push_back(-(harmadnapiZaras/masnapiZaras-1.0f));
                 }
@@ -1072,23 +1072,28 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
             //rgpu.mozgoatlagokAtlag[j].resize(osszesDatum.size());
             //rgpu.mozgoatlagokDatum[j].resize(osszesDatum.size());
             for (int z=0; z<osszesDatum.size(); z++){
+                ///if (i==469 && j==20 && z==137) cout<<"PEKING"<<endl;
                 //cout<<"Z "<<z<<endl;
                 ///if (i==2 && j==25 && z==1425) cout<<"ALMA "<<reszvenyek[i].nev<<endl;
                 if (reszvenyek[i].mozgoatlag[j].datum[midx]<osszesDatum[z]){
+                        ///if (i==469 && j==20 && z==137) cout<<"PEKING2"<<endl;
                     z--;
                     midx++;
                     continue;
                 }
                 if (osszesDatum[z]<reszvenyek[i].mozgoatlag[j].datum[midx]){
-                    rgpu.mozgoatlagokAtlag[j][z]=0;
-                    rgpu.mozgoatlagokZaras[j][z]=0;
-                    rgpu.mozgoatlagokDatum[j][z]=0;
+                    ///if (i==469 && j==20 && z==137) cout<<"PEKING1"<<endl;
+                    rgpu.mozgoatlagokAtlag[j][z]=-1;
+                    rgpu.mozgoatlagokZaras[j][z]=-1;
+                    rgpu.mozgoatlagokDatum[j][z]=-1;
                     continue;
                 }
                 ///if (i==2 && j==25 && z==1425) cout<<"ALMA2"<<endl;
                 ///cout<<"ok2"<<endl;
+                ///if (i==469 && j==20 && z==137) cout<<"PEKING3"<<endl;
                 rgpu.mozgoatlagokAtlag[j][z]=reszvenyek[i].mozgoatlag[j].atlag[midx];
                 rgpu.mozgoatlagokZaras[j][z]=reszvenyek[i].mozgoatlag[j].zaras[midx];
+                if (reszvenyek[i].mozgoatlag[j].zaras[midx]==0) cout<<"HIBA"<<endl;
                 rgpu.mozgoatlagokDatum[j][z]=reszvenyek[i].mozgoatlag[j].datum[midx].toInt();
                 midx++;
             }

@@ -192,8 +192,8 @@ struct Reszveny{
 
 struct ReszvenyGPU{
     vector< vector<float> > mozgoatlagokAtlag;
-    vector< vector<float> > mozgoatlagokZaras;
-    vector< vector<int > > mozgoatlagokDatum;
+    vector<float> mozgoatlagokZaras;
+    vector<float> mozgoatlagokDatum;
     int N;
 };
 
@@ -787,13 +787,13 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
 
 __global__ void process_moving_window(
     const float* vec1, const float* vec2, const float* vec3,
-    bool* output, int N, bool buy, float tores, int ms, int mi, bool toresAlatt) {
+    int* output, int N, bool buy, float tores, int ms, int mi, bool toresAlatt) {
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
+    output[idx] = 0;
     // Az indexnek elég nagynak kell lennie ahhoz, hogy a mozgóablak működjön
     if (idx < 2 || idx >= N - 2) {
-        output[idx]=false;
+        //output[idx]=0.0f;
         return;
     }
 
@@ -865,9 +865,111 @@ __global__ void process_moving_window(
 
     // Feltételek ellenőrzése (helyettesítsd saját feltételeiddel)
     output[idx] = 1;
+    return;
 }
 
-int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU, Parameterek& params, Score& score, vector<Datum>& osszesDatum, int ert,int zzz){
+__global__ void exclusive_scan(int* input, int* output, int N) {
+    extern __shared__ int temp[]; // Shared memória
+    int tid = threadIdx.x;
+
+    // Beolvasás shared memóriába
+    if (tid < N) temp[tid] = input[tid];
+    else temp[tid] = 0;
+    __syncthreads();
+
+    // Up-sweep (reduce)
+    for (int offset = 1; offset < N; offset *= 2) {
+        int t = 0;
+        if (tid >= offset) {
+            t = temp[tid - offset];
+        }
+        __syncthreads();
+        temp[tid] += t;
+        __syncthreads();
+    }
+
+    // Down-sweep
+    if (tid == N - 1) temp[tid] = 0; // Az utolsó elem 0 lesz
+    __syncthreads();
+
+    for (int offset = N / 2; offset > 0; offset /= 2) {
+        int t = 0;
+        if (tid >= offset) {
+            t = temp[tid - offset];
+        }
+        __syncthreads();
+        int current = temp[tid];
+        temp[tid] = t;
+        temp[tid] += current;
+        __syncthreads();
+    }
+
+    // Eredmények visszaírása
+    if (tid < N) {
+        output[tid] = temp[tid];
+    }
+}
+
+__global__ void exclusive_scan_global(const int* input, int* output, int N) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+
+    if (idx < N) {
+        // Up-Sweep fázis
+        output[idx] = input[idx];
+        for (int offset = 1; offset < N; offset *= 2) {
+            __syncthreads();
+            if (idx >= offset) {
+                output[idx] += output[idx - offset];
+            }
+        }
+
+        __syncthreads();
+
+        // Az utolsó elem 0 lesz (exclusive scan szabály)
+        if (idx == N - 1) {
+            output[idx] = 0;
+        }
+
+        // Down-Sweep fázis
+        for (int offset = N / 2; offset > 0; offset /= 2) {
+            __syncthreads();
+            if (idx >= offset) {
+                int temp = output[idx - offset];
+                output[idx - offset] = output[idx];
+                output[idx] += temp;
+            }
+        }
+    }
+}
+
+
+
+__global__ void compact_indices(const int* data, const int* scan_result, int* compacted, int N) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx >= N) return;
+
+    // Ha az adat érvényes (1), írjuk be a prefix sum alapján
+    if (data[idx] == 1) {
+        compacted[scan_result[idx]] = idx + 1; // Index 1-től kezdődik
+    }
+}
+
+__global__ void fill_remaining(int* compacted, int start, int N) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx >= N || idx < start) return;
+
+    compacted[idx] = -1; // Töltse fel -1-gyel
+}
+
+
+struct ResGpu{
+    vector<vector<float*>> adatok;
+    vector<int*> output, scan;
+};
+
+int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU, Parameterek& params, Score& score, vector<Datum>& osszesDatum, ResGpu& resGpu, int ert,int zzz){
     score.clrt();
     clock_t stime = clock();
     vector<vector<int>> tores_cnt_per_year; tores_cnt_per_year.resize(25,vector<int> (200,0));
@@ -892,41 +994,42 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
 
 
 
+    clock_t stime1 = clock();
     int hm = 0;
+    int N = reszvenyekGPU[0].mozgoatlagokAtlag[params.m2].size();
+    std::vector<int> h_output(N, 0);
+
     for (int i=0;i<rs; i++){
         ///cout<<"R"<<i<<endl;
         const int rm = reszvenyekGPU[i].mozgoatlagokAtlag[params.m2].size();
 
         // GPU memória allokáció
-        int N = reszvenyekGPU[i].mozgoatlagokAtlag[params.m2].size();
-        float *d_vec1, *d_vec2, *d_vec3;
-        bool *d_output;
-        cudaMalloc(&d_vec1, N * sizeof(float));
-        cudaMalloc(&d_vec2, N * sizeof(float));
-        cudaMalloc(&d_vec3, N * sizeof(float));
-        cudaMalloc(&d_output, N * sizeof(char));
-
-        std::vector<char> h_output(N, 0);
-
-        // Adatok másolása a GPU-ra
-        cudaMemcpy(d_vec1, reszvenyekGPU[i].mozgoatlagokAtlag[params.m1].data(), N * sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_vec2, reszvenyekGPU[i].mozgoatlagokAtlag[params.m2].data(), N * sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_vec3, reszvenyekGPU[i].mozgoatlagokAtlag[params.m3].data(), N * sizeof(float), cudaMemcpyHostToDevice);
+        //int N = reszvenyekGPU[i].mozgoatlagokAtlag[params.m2].size();
+        //std::vector<char> h_output(N, 0);
+        ///cudaMemcpy(resGpu.output, h_output.data(), N * sizeof(char), cudaMemcpyHostToDevice);
+        //cudaMemcpy(h_output.data(), resGpu.output, N * sizeof(char), cudaMemcpyDeviceToHost);
 
         // Kernel indítása
         int threads_per_block = 256;
         int blocks = (N + threads_per_block - 1) / threads_per_block;
-        process_moving_window<<<blocks, threads_per_block>>>(d_vec1, d_vec2, d_vec3, d_output, N,params.buy,params.tores,params.ms,params.mi,params.toresAlatt);
+        process_moving_window<<<blocks, threads_per_block>>>(
+        resGpu.adatok[i][params.m1], resGpu.adatok[i][params.m2], resGpu.adatok[i][params.m3],
+        resGpu.output[ert], N,params.buy,params.tores,params.ms,params.mi,params.toresAlatt);
 
         // Eredmények visszamásolása
-        cudaMemcpy(h_output.data(), d_output, N * sizeof(char), cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_output.data(), resGpu.output[ert], N * sizeof(int), cudaMemcpyDeviceToHost);
 
-        for (int i = 0; i < N; ++i) {
-            //std::cout << "output[" << i << "] = " << (int)h_output[i] << std::endl;
-            if (h_output[i]==1) hm++;
+        for (int k = 0; k < N; ++k) {
+            if (h_output[k]==-1) break;
+            ///cout<<h_output[k]<<" ";
+            hm++;
+            score.alkalmakEvente[reszvenyekGPU[i].mozgoatlagokDatum[k]/10000-2000]++;
+            pelda.reszvenyIdx=i; pelda.mozgoatlagIdx=k; pelda.datum=reszvenyekGPU[i].mozgoatlagokDatum[k];
+            osszesPeldaGPU.push_back(pelda);
         }
+        ///cout<<endl;
 
-        for (int k=2; k<rm-zzz; k++){
+        for (int k=2; false && k<rm-zzz; k++){
 
             float a1 = reszvenyekGPU[i].mozgoatlagokAtlag[params.m2][k-2];
             float a2 = reszvenyekGPU[i].mozgoatlagokAtlag[params.m2][k-1];
@@ -984,11 +1087,11 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
 
             ///cout<<score.alkalmakEvente.size()<<" "<<tores_cnt_per_year[ev][params.m2]<<endl;
             ///tores_cnt_per_year[ev][params.m2]++;
-            score.alkalmakEvente[reszvenyekGPU[i].mozgoatlagokDatum[params.m2][k]/10000-2000]++;
+            score.alkalmakEvente[reszvenyekGPU[i].mozgoatlagokDatum[k]/10000-2000]++;
             ///continue;
 
             ///cout<<"O"<<k<<endl;
-            pelda.reszvenyIdx=i; pelda.mozgoatlagIdx=k; pelda.datum=reszvenyekGPU[i].mozgoatlagokDatum[params.m2][k];
+            pelda.reszvenyIdx=i; pelda.mozgoatlagIdx=k; pelda.datum=reszvenyekGPU[i].mozgoatlagokDatum[k];
             ///if (i==332) cout<<pelda.datum<<endl;
             ///cout<<"A "<<i<<" "<<k<<endl;
 
@@ -1010,7 +1113,7 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
     sort(osszesPeldaGPU.begin(),osszesPeldaGPU.end());
     list<PeldaGPU> osszesPeldaList;
     osszesPeldaList.insert(osszesPeldaList.end(),osszesPeldaGPU.begin(),osszesPeldaGPU.end());
-    cout<<osszesPeldaGPU.size()<<" "<<osszesPeldaList.size()<<" hm: "<<hm<<endl;
+    ///cout<<osszesPeldaGPU.size()<<" "<<osszesPeldaList.size()<<" hm: "<<hm<<endl;
 
     vector<float> napiErtek;
     napiErtek.resize(osszesDatum.size(),100.0f);
@@ -1052,16 +1155,16 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
                 bool felfele = params.buy;///reszvenyek[stockIdx].mozgoatlag[params.m2].atlag[mozgoAtlagIdx]>reszvenyek[stockIdx].mozgoatlag[params.m2].atlag[mozgoAtlagIdx-1];
                 int aznapiVetel = params.adasVeteliNapok; /// MELYIK METÓDUS
                 if (aznapiVetel==0){
-                    float aznapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx];
-                    float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+1];
+                    float aznapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[mozgoAtlagIdx];
+                    float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[mozgoAtlagIdx+1];
                     if (aznapiZaras!=-1 && masnapiZaras!=-1) {
                     //if (aznapiZaras==0) cout<<"BAJ0: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+1<<endl;
                         if (felfele) ertekek.push_back(masnapiZaras/aznapiZaras-1.0f);
                         else ertekek.push_back(-(masnapiZaras/aznapiZaras-1.0f));
                     }
                 } else if (aznapiVetel==1){
-                    float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+1];
-                    float harmadnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[params.m2][mozgoAtlagIdx+2];
+                    float masnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[mozgoAtlagIdx+1];
+                    float harmadnapiZaras = reszvenyekGPU[stockIdx].mozgoatlagokZaras[mozgoAtlagIdx+2];
                     //if (masnapiZaras==0) cout<<"BAJ1: "<<stockIdx<<" "<<reszvenyek[stockIdx].nev<<" "<<params.m2<<" "<<mozgoAtlagIdx+2<<endl;
                     if (harmadnapiZaras!=-1 && masnapiZaras!=-1) {
                         if (felfele) ertekek.push_back(harmadnapiZaras/masnapiZaras-1.0f);
@@ -1157,8 +1260,8 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
         ///cout<<"I "<<i<<" "<<reszvenyek[i].nev<<endl;
         ReszvenyGPU rgpu;
         rgpu.mozgoatlagokAtlag.resize(MOZGO_CNT,vector<float>(osszesDatum.size()));
-        rgpu.mozgoatlagokZaras.resize(MOZGO_CNT,vector<float>(osszesDatum.size()));
-        rgpu.mozgoatlagokDatum.resize(MOZGO_CNT,vector<int>(osszesDatum.size()));
+        rgpu.mozgoatlagokZaras.resize(osszesDatum.size());
+        rgpu.mozgoatlagokDatum.resize(osszesDatum.size());
         rgpu.N=osszesDatum.size();
         for (int j=0; j<MOZGO_CNT; j++){
             ///cout<<"J "<<j<<endl;
@@ -1178,16 +1281,16 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
                 if (osszesDatum[z]<reszvenyek[i].mozgoatlag[j].datum[midx]){
                     ///if (i==469 && j==20 && z==137) cout<<"PEKING1"<<endl;
                     rgpu.mozgoatlagokAtlag[j][z]=-1;
-                    rgpu.mozgoatlagokZaras[j][z]=-1;
-                    rgpu.mozgoatlagokDatum[j][z]=-1;
+                    rgpu.mozgoatlagokZaras[z]=-1;
+                    rgpu.mozgoatlagokDatum[z]=-1;
                     continue;
                 }
                 ///if (i==2 && j==25 && z==1425) cout<<"ALMA2"<<endl;
                 ///cout<<"ok2"<<endl;
                 ///if (i==469 && j==20 && z==137) cout<<"PEKING3"<<endl;
                 rgpu.mozgoatlagokAtlag[j][z]=reszvenyek[i].mozgoatlag[j].atlag[midx];
-                rgpu.mozgoatlagokZaras[j][z]=reszvenyek[i].mozgoatlag[j].zaras[midx];
-                rgpu.mozgoatlagokDatum[j][z]=reszvenyek[i].mozgoatlag[j].datum[midx].toInt();
+                rgpu.mozgoatlagokZaras[z]=reszvenyek[i].mozgoatlag[j].zaras[midx];
+                rgpu.mozgoatlagokDatum[z]=reszvenyek[i].mozgoatlag[j].datum[midx].toInt();
                 midx++;
             }
         }
@@ -1197,18 +1300,55 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
     return ret;
 }
 
+ResGpu getResGpu(vector<ReszvenyGPU> &reszvenyekGPU){
+    int N = reszvenyekGPU[0].mozgoatlagokAtlag[0].size();
+    ResGpu resGpu;
+    resGpu.adatok.resize(reszvenyekGPU.size());
+    for (int i=0; i<reszvenyekGPU.size(); i++){
+        resGpu.adatok[i].resize(52); /// 52 = 50 mozgóátlag + 1 zárás + 1 dátum
+    }
+
+    for (int i=0; i<reszvenyekGPU.size(); i++){
+        for (int j=0; j<52; j++){
+            if (j<50) cudaMalloc(&resGpu.adatok[i][j], N * sizeof(float));
+            if (j==50) cudaMalloc(&resGpu.adatok[i][j], N * sizeof(float));
+            if (j==51) cudaMalloc(&resGpu.adatok[i][j], N * sizeof(float));
+        }
+    }
+    std::vector<int> output(N, 0);
+    resGpu.output.resize(64);
+    resGpu.scan.resize(64);
+    for (int i=0; i<64; i++){
+        cudaMalloc(&resGpu.output[i], N * sizeof(int));
+        cudaMalloc(&resGpu.scan[i], N * sizeof(int));
+
+        cudaMemcpy(resGpu.output[i], output.data(), N * sizeof(int), cudaMemcpyHostToDevice);
+        cudaMemcpy(resGpu.scan[i], output.data(), N * sizeof(int), cudaMemcpyHostToDevice);
+    }
+
+    for (int i=0; i<reszvenyekGPU.size(); i++){
+        for (int j=0; j<52; j++){
+            if (j<50) cudaMemcpy(resGpu.adatok[i][j], reszvenyekGPU[i].mozgoatlagokAtlag[j].data(), N * sizeof(float), cudaMemcpyHostToDevice);
+            if (j==50) cudaMemcpy(resGpu.adatok[i][j], reszvenyekGPU[i].mozgoatlagokDatum.data(), N * sizeof(float), cudaMemcpyHostToDevice);
+            if (j==51) cudaMemcpy(resGpu.adatok[i][j], reszvenyekGPU[i].mozgoatlagokZaras.data(), N * sizeof(float), cudaMemcpyHostToDevice);
+        }
+    }
+    return resGpu;
+}
+
 int main(){
     clock_t fullT = clock();
-    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("ossz24_09.txt","data");
+    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("amd.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
     vector<Datum> osszesDatum = getOsszesDatum(reszvenyek);
     clock_t time0 = clock();
     cout<<"DONE "<<osszesDatum.size()<<endl;
     vector<ReszvenyGPU> reszvenyekGPU = getReszvenyekGPU(reszvenyek, osszesDatum);
+    ResGpu resGpu = getResGpu(reszvenyekGPU);
     clock_t time01 = clock();
     cout<<"DONE 2"<<endl;
 
-    bool speedTest = true;
+    bool speedTest = false;
     if (speedTest){
         Parameterek params; params.m1=14; params.m2=20; params.m3=49;
         params.adasVeteliNapok=1;
@@ -1222,7 +1362,7 @@ int main(){
         Score score;
 
         clock_t time1 = clock();
-        getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,-2,3);
+        getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,resGpu,-2,3);
         ///cout<<reszvenyekGPU[0].mozgoatlagokAtlag[25][1425]<<endl;
         cout<<score.evVegiek[24]<<endl;
         getScore(reszvenyek,params,score,osszesDatum,-2);
@@ -1234,7 +1374,7 @@ int main(){
         float toZ = score.evVegiek[24];
 
         for (int zzz=0; zzz<0;zzz++){
-            getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,-2,zzz);
+            getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,resGpu,-2,zzz);
             if (toZ==score.evVegiek[24]){
                 cout<<zzz<<endl;
                 break;
@@ -1413,7 +1553,8 @@ int main(){
     for (size_t i=offSet; i<parameterek.size();){
         int savedI = i;
         for (int j=0; j<thCnt; j++){
-            szalak[j] = thread(getScore,ref(reszvenyek),ref(parameterek[i]),ref(scores[j]),ref(osszesDatum),j);
+                ///getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,resGpu,-2,3);
+            szalak[j] = thread(getScoreGPU,ref(reszvenyek),ref(reszvenyekGPU),ref(parameterek[i]),ref(scores[j]),ref(osszesDatum),ref(resGpu),j,3);
             i++;
 
             //cout<<i<<endl;

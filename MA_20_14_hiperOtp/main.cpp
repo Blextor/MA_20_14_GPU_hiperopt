@@ -127,6 +127,19 @@ struct Datum{
     Datum(int e, int h, int n){ev=e; honap=h; nap=n;}
     Datum(){ev=0; honap=0; nap=0;}
 
+    int toInt(){return ev*10000+honap*100+nap;}
+    Datum fromInt(int d){
+        Datum datum; datum.ev=d/10000;
+        datum.honap=(d%10000)/100;
+        datum.nap=d%100;
+        return datum;
+    }
+
+    void setInt(int d){ev=d/10000;
+        honap=(d%10000)/100;
+        nap=d%100;
+    }
+
     string toString(){
         stringstream ss; ss<<ev<<" "<<honap<<" "<<nap;
         return ss.str();
@@ -166,6 +179,13 @@ struct Reszveny{
     string nev;
     vector<Nap> napok;
     vector<MozgoAtlag> mozgoatlag;
+};
+
+struct ReszvenyGPU{
+    vector< vector<float> > mozgoatlagokAtlag;
+    vector<float> mozgoatlagokZaras;
+    vector<float> mozgoatlagokDatum;
+    int N;
 };
 
 /// Betölti a fájlokból a részvények adatait
@@ -410,6 +430,16 @@ struct Pelda {
         if (datum==other.datum)
             return stockName<other.stockName;
         return datum<other.datum;
+    }
+};
+
+struct PeldaGPU{
+    int reszvenyIdx, mozgoatlagIdx, datum;
+
+    bool operator<(const PeldaGPU& other) const {
+        if (mozgoatlagIdx==other.mozgoatlagIdx)
+            return reszvenyIdx<other.reszvenyIdx;
+        return mozgoatlagIdx<other.mozgoatlagIdx;
     }
 };
 
@@ -758,6 +788,54 @@ vector<Datum> getOsszesDatum(vector<Reszveny>& reszvenyek){
 
 void runTest(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, vector<Datum>& osszesDatum, int ert){
 
+}
+
+vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>& osszesDatum){
+    vector<ReszvenyGPU> ret;
+    //vector<float> atlag(osszesDatum.size(),0);
+    const int MOZGO_CNT = 50;
+    for (int i=0; i<reszvenyek.size(); i++){
+        ///cout<<"I "<<i<<" "<<reszvenyek[i].nev<<endl;
+        ReszvenyGPU rgpu;
+        rgpu.mozgoatlagokAtlag.resize(MOZGO_CNT,vector<float>(osszesDatum.size()));
+        rgpu.mozgoatlagokZaras.resize(osszesDatum.size());
+        rgpu.mozgoatlagokDatum.resize(osszesDatum.size());
+        rgpu.N=osszesDatum.size();
+        for (int j=0; j<MOZGO_CNT; j++){
+            ///cout<<"J "<<j<<endl;
+            int midx = 0;
+            //rgpu.mozgoatlagokAtlag[j].resize(osszesDatum.size());
+            //rgpu.mozgoatlagokDatum[j].resize(osszesDatum.size());
+            for (int z=0; z<osszesDatum.size(); z++){
+                ///if (i==469 && j==20 && z==137) cout<<"PEKING"<<endl;
+                //cout<<"Z "<<z<<endl;
+                ///if (i==2 && j==25 && z==1425) cout<<"ALMA "<<reszvenyek[i].nev<<endl;
+                if (reszvenyek[i].mozgoatlag[j].datum[midx]<osszesDatum[z]){
+                        ///if (i==469 && j==20 && z==137) cout<<"PEKING2"<<endl;
+                    z--;
+                    midx++;
+                    continue;
+                }
+                if (osszesDatum[z]<reszvenyek[i].mozgoatlag[j].datum[midx]){
+                    ///if (i==469 && j==20 && z==137) cout<<"PEKING1"<<endl;
+                    rgpu.mozgoatlagokAtlag[j][z]=-1;
+                    rgpu.mozgoatlagokZaras[z]=-1;
+                    rgpu.mozgoatlagokDatum[z]=-1;
+                    continue;
+                }
+                ///if (i==2 && j==25 && z==1425) cout<<"ALMA2"<<endl;
+                ///cout<<"ok2"<<endl;
+                ///if (i==469 && j==20 && z==137) cout<<"PEKING3"<<endl;
+                rgpu.mozgoatlagokAtlag[j][z]=reszvenyek[i].mozgoatlag[j].atlag[midx];
+                rgpu.mozgoatlagokZaras[z]=reszvenyek[i].mozgoatlag[j].zaras[midx];
+                rgpu.mozgoatlagokDatum[z]=reszvenyek[i].mozgoatlag[j].datum[midx].toInt();
+                midx++;
+            }
+        }
+        ret.push_back(rgpu);
+    }
+
+    return ret;
 }
 
 int main(){

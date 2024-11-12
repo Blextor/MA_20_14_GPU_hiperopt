@@ -535,23 +535,71 @@ bool chkSorrend(const float& a, const float& b, const float& c){
     return (a<=b && b<=c);
 }
 
+int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Score>& score, vector<Datum>& osszesDatum, int ert){
+    int N = reszvenyekGpu[0].N;
+    int m1 = params.m1, m2 = params.m2, m3 = params.m3;
+    //params.
+    vector<vector<PeldaGPU>> peldak(48); /// mi*ms*toresElojel 4*6*2=48 //
+    PeldaGPU p;
+    for (int k=0;k<reszvenyekGpu.size();k++){
+        for (int i=2; i<N-2; i++){
+            float ma11 = reszvenyekGpu[k].mozgoatlagokAtlag[m1][i-2];
+            float ma21 = reszvenyekGpu[k].mozgoatlagokAtlag[m1][i-1];
+            float ma31 = reszvenyekGpu[k].mozgoatlagokAtlag[m1][i];
+
+            float ma12 = reszvenyekGpu[k].mozgoatlagokAtlag[m2][i-2];
+            float ma22 = reszvenyekGpu[k].mozgoatlagokAtlag[m2][i-1];
+            float ma32 = reszvenyekGpu[k].mozgoatlagokAtlag[m2][i];
+
+            float ma13 = reszvenyekGpu[k].mozgoatlagokAtlag[m3][i-2];
+            float ma23 = reszvenyekGpu[k].mozgoatlagokAtlag[m3][i-1];
+            float ma33 = reszvenyekGpu[k].mozgoatlagokAtlag[m3][i];
+
+            float a1 = reszvenyekGpu[k].mozgoatlagokAtlag[m2][i-2];
+            float a2 = reszvenyekGpu[k].mozgoatlagokAtlag[m2][i-1];
+
+            float b1 = ma22-ma12, b2 = ma32-ma22;
+            int elojel = 0; /// pozitív
+            if (b2<0 && b1<0 && b1<b2) elojel=1; /// negatív
+
+            float tores = b1-b2;
+
+            int sorrend = 0;
+            if (chkSorrend(ma33,ma32,ma31)) sorrend = 0;
+            else if (chkSorrend(ma33,ma31,ma32)) sorrend = 1;
+            else if (chkSorrend(ma32,ma31,ma33)) sorrend = 2;
+            else if (chkSorrend(ma32,ma33,ma31)) sorrend = 3;
+            else if (chkSorrend(ma31,ma33,ma32)) sorrend = 4;
+            else if (chkSorrend(ma31,ma32,ma33)) sorrend = 5;
+
+            int tendencia = 0;
+            if (ma32-ma31 >=0) tendencia+=1;
+            if (ma12-ma11 >=0) tendencia+=2;
+
+            int esetSzam = elojel*24 + tendencia*6 + sorrend;
+            p.datum=reszvenyekGpu[k].mozgoatlagokDatum[i];
+            p.mozgoatlagIdx=i; p.reszvenyIdx=k;
+            peldak[esetSzam].push_back(p);
+        }
+    }
+
+    for (int z=0; z<48; z++){
+
+    }
+
+    return 0;
+}
+
 int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, vector<Datum>& osszesDatum, int ert){
     score.clrt();
     clock_t stime = clock();
     int MOZGO_ATLAG_MIN_MERET = 50;
 
-
-    Datum kezdo(2014,8,1); /// 2009, 8
-    vector<vector<int>> tores_cnt_per_year; tores_cnt_per_year.resize(25,vector<int> (200,0));
-    vector<vector<float>> tores_szum_per_year_pre; tores_szum_per_year_pre.resize(25,vector<float> (200,0));
-    vector<vector<vector<float>>> tores_szum_per_year;
-    for (int i=0; i<20; i++) tores_szum_per_year.push_back(tores_szum_per_year_pre);
-    //for (int i=0; i<)
-
     bool debug = false;
 
     vector<Datum> osszesEset; osszesEset.reserve(100000);
     vector<Pelda> osszesPelda; osszesPelda.reserve(100000);
+    vector<PeldaGPU> osszesPeldaG;
     ///cout<<"ALMA "<<ert<<endl;
     ///return 0;
     Pelda pelda;
@@ -566,16 +614,6 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
             if (k+7>=reszvenyek[i].mozgoatlag[params.m2].atlag.size()) continue;
 
             itrCnt2++;
-            /// ???
-            /** Nem kell most
-            /// dupla k-1 es eredmény érdekes volt
-            if (reszvenyek[i].mozgoatlag[19].atlag[k-1]<reszvenyek[i].mozgoatlag[19].atlag[k] ==
-                reszvenyek[i].mozgoatlag[13].atlag[k-1+6]<reszvenyek[i].mozgoatlag[13].atlag[k+6])
-            {
-                torolt=true;
-                continue;
-            }
-            */
 
             /// törés2
 
@@ -646,7 +684,7 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
 
 
             ///cout<<score.alkalmakEvente.size()<<" "<<tores_cnt_per_year[ev][params.m2]<<endl;
-            tores_cnt_per_year[ev][params.m2]++;
+            ///tores_cnt_per_year[ev][params.m2]++;
             score.alkalmakEvente[ev]++;
             ///continue;
             pelda.stockName=reszvenyek[i].nev; pelda.datum=reszvenyek[i].mozgoatlag[params.m2].datum[k];
@@ -843,6 +881,13 @@ int main(){
     vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("ossz24_09.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
     vector<Datum> osszesDatum = getOsszesDatum(reszvenyek);
+    clock_t time0 = clock();
+    cout<<"DONE "<<osszesDatum.size()<<endl;
+    vector<ReszvenyGPU> reszvenyekGPU = getReszvenyekGPU(reszvenyek, osszesDatum);
+    ///ResGpu resGpu = getResGpu(reszvenyekGPU);
+    clock_t time01 = clock();
+    cout<<"DONE 2: "<<time01-time0<<endl;
+
 
     bool speedTest = true;
     if (speedTest){

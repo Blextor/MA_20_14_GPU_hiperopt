@@ -785,6 +785,16 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
     return 0;
 }
 
+int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Score>& scores, vector<Datum>& osszesDatum, int ert){
+    int N = reszvenyekGpu[0].N;
+    for (int i=2; i<N-2; i++){
+        resz
+    }
+
+
+    return 0;
+}
+
 __global__ void process_moving_window(
     const float* vec1, const float* vec2, const float* vec3,
     int* output, int N, bool buy, float tores, int ms, int mi, bool toresAlatt) {

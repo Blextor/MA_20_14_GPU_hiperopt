@@ -13,3 +13,17 @@
 	<random>
 	<list>
 
+1731376215 source:c:\users\bobo\documents\github\ma_20_14_gpu_hiperopt\ma_20_14_hiperotp\main.cpp
+	<iostream>
+	<fstream>
+	<string>
+	<vector>
+	<unordered_set>
+	<windows.h>
+	<sstream>
+	<algorithm>
+	<set>
+	<thread>
+	<random>
+	<list>
+

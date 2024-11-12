@@ -1,0 +1,15 @@
+# depslib dependency file v1.0
+1731160892 source:c:\users\bobo\documents\2024_10_stockpred\ma_20_14_hiperotp\main.cpp
+	<iostream>
+	<fstream>
+	<string>
+	<vector>
+	<unordered_set>
+	<windows.h>
+	<sstream>
+	<algorithm>
+	<set>
+	<thread>
+	<random>
+	<list>
+

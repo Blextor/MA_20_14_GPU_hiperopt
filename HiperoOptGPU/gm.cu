@@ -1010,7 +1010,7 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
         //cudaMemcpy(h_output.data(), resGpu.output, N * sizeof(char), cudaMemcpyDeviceToHost);
 
         // Kernel indítása
-        int threads_per_block = 512;
+        int threads_per_block = 256;
         int blocks = (N + threads_per_block - 1) / threads_per_block;
         process_moving_window<<<blocks, threads_per_block>>>(
         resGpu.adatok[i][params.m1], resGpu.adatok[i][params.m2], resGpu.adatok[i][params.m3],
@@ -1027,7 +1027,6 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
             pelda.reszvenyIdx=i; pelda.mozgoatlagIdx=k; pelda.datum=reszvenyekGPU[i].mozgoatlagokDatum[k];
             osszesPeldaGPU.push_back(pelda);
         }
-
         ///cout<<endl;
 
         for (int k=2; false && k<rm-zzz; k++){
@@ -1227,7 +1226,7 @@ int getScoreGPU(vector<Reszveny>& reszvenyek, vector<ReszvenyGPU>& reszvenyekGPU
     ///cout<<"CALMA "<<ert<<endl;
     score.atlagosProfit=tempSzum/max(1.0f,tempCnt);
     score.teljes=napiErtek;
-    //if(ert==-2)
+    ///if(ert==-2)
         cout<<"TIME: "<<endtime-midtime2<<" "<<midtime2-midtime<<" "<<midtime-stime<<endl;
     return 0;
 }
@@ -1339,6 +1338,7 @@ ResGpu getResGpu(vector<ReszvenyGPU> &reszvenyekGPU){
 }
 
 int main(){
+    int input;
     clock_t fullT = clock();
     vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("ossz24_09.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
@@ -1349,6 +1349,19 @@ int main(){
     ResGpu resGpu = getResGpu(reszvenyekGPU);
     clock_t time01 = clock();
     cout<<"DONE 2"<<endl;
+
+    int N = osszesDatum.size();
+    for (int i=0; i<0;i++){
+        for (int j=0; j<15;j++){
+            int threads_per_block = 256;
+            int blocks = (N + threads_per_block - 1) / threads_per_block;
+            process_moving_window<<<blocks, threads_per_block>>>(
+            resGpu.adatok[i][0+j], resGpu.adatok[i][15+j], resGpu.adatok[i][30+j],
+            resGpu.output[i], N,true,0.0039f,0,0,false);
+        }
+    }
+    clock_t time02 = clock();
+    cout<<"TIME: "<< time02-time01<<endl;
 
     bool speedTest = false;
     if (speedTest){
@@ -1556,11 +1569,7 @@ int main(){
         int savedI = i;
         for (int j=0; j<thCnt; j++){
                 ///getScoreGPU(reszvenyek,reszvenyekGPU,params,score,osszesDatum,resGpu,-2,3);
-
-        //getScore(reszvenyek,params,score,osszesDatum,-2);
-            szalak[j] = thread(getScore,ref(reszvenyek),ref(parameterek[i]),ref(scores[j]),ref(osszesDatum),j);
-
-            //szalak[j] = thread(getScoreGPU,ref(reszvenyek),ref(reszvenyekGPU),ref(parameterek[i]),ref(scores[j]),ref(osszesDatum),ref(resGpu),j,3);
+            szalak[j] = thread(getScoreGPU,ref(reszvenyek),ref(reszvenyekGPU),ref(parameterek[i]),ref(scores[j]),ref(osszesDatum),ref(resGpu),j,3);
             i++;
 
             //cout<<i<<endl;
@@ -1603,18 +1612,13 @@ int main(){
 
     }
 
-    /*Parameterek params; params.m1=13; params.m2=19; params.m3=49;
-                            params.adasVeteliNapok=0;
-                            params.tores=0.0039f;
-                            cnt++;*/
-                            //getScore(reszvenyek,params);
+
     cout<<"TIME: "<<(clock()-t)<<endl;
     //Sleep(1000);
     cout<<"TIME: "<<(clock()-t)<<endl;
     cout<<"CNT: "<<cnt<<" "<<parameterek.size()<<endl;
 
 
-    int input;
     cin>>input;
     cout<<input*2;
 

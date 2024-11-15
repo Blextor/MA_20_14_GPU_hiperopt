@@ -11,6 +11,14 @@
 #include <random>
 #include <list>
 #include <cmath>
+#include <iostream>
+#include <vector>
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <functional>
+#include <atomic>
 
 using namespace std;
 
@@ -275,12 +283,24 @@ void reszvenyBetoltese(Reszveny& reszveny, string fajlnev){
     reszveny.mozgoatlag.clear(); reszveny.napok.clear(); reszveny.nev="";
     ifstream ifileStockData(fajlnev);
     string reszvenyNeve,fejlec,toSplit;
-    ifileStockData>>fejlec;
+    //ifileStockData>>fejlec;
+    getline(ifileStockData,toSplit);
+    vector<string> lines; lines.reserve(10000);
+    ///cout<<"OK"<<endl;
+    while (!ifileStockData.eof()){
+        getline(ifileStockData,toSplit);
+        if (toSplit.size()>2)
+            lines.push_back(toSplit);
+    }
+    ///cout<<"OK2"<<endl;
     vector<string> elemek;
     reszveny.mozgoatlag.resize(200);
     vector<list<MozgoAtlag>> mozgAtlgk(200);
-    while (!ifileStockData.eof()){
-        ifileStockData>>toSplit;
+    for (string str: lines){
+        ///cout<<"OK3"<<endl;
+        ///cout<<str<<endl;
+        //ifileStockData>>toSplit;
+        toSplit=str;
         elemek = split(toSplit,",");
         stringstream ss(elemek[2]); /// 19871230 -> 1987 12 30
         int datum=0; ss>>datum;
@@ -294,30 +314,8 @@ void reszvenyBetoltese(Reszveny& reszveny, string fajlnev){
         ///if (nap.datum.ev<2000) continue;
 
         for (float n=1.0f; n<=200; n++){
-            /*
-            if (reszveny.mozgoatlag[n-1].atlag.size()==0 && reszveny.napok[reszveny.napok.size()-2].datum.ev<2000){
-                Datum datum;
-                for (int o=0;o<200-n+1; o++){
-                    reszveny.mozgoatlag[n-1].atlag.push_back(0.0f);
-                    reszveny.mozgoatlag[n-1].datum.push_back(datum);
-                    reszveny.mozgoatlag[n-1].zaras.push_back(0.0f);
-                    reszveny.mozgoatlag[n-1].nyitas.push_back(0.0f);
-                }
-            }
-            */
             if (reszveny.napok.size()<n) continue;
             if (reszveny.napok.size()==n) {
-                /*
-                MozgoAtlag ujAtlag; ujAtlag.datum=nap.datum;
-                for (int k=0; k<200;k++) ujAtlag.m200+=reszveny.napok[k].zaras;
-                ujAtlag.m200/=200.0f;
-                for (int k=100; k<200;k++) ujAtlag.m100+=reszveny.napok[k].zaras;
-                ujAtlag.m100/=100.0f;
-                for (int k=150; k<200;k++) ujAtlag.m50+=reszveny.napok[k].zaras;
-                ujAtlag.m50/=50.0f;
-                ujAtlag.zaras=reszveny.napok[199].zaras;
-                reszveny.mozgoatlag.push_back(ujAtlag);
-                */
                 continue;
             }
             reszveny.mozgoatlag[n-1].hossz=n;
@@ -329,58 +327,79 @@ void reszvenyBetoltese(Reszveny& reszveny, string fajlnev){
                 atlag+=reszveny.napok[k].zaras;
             atlag/=n;
             reszveny.mozgoatlag[n-1].atlag.push_back(atlag);
-            /*
-            MozgoAtlag ujAtlag = reszveny.mozgoatlag.back();
-            int index = reszveny.napok.size()-201;
-            ujAtlag.datum = nap.datum;
-            ujAtlag.m200+=nap.zaras/200.0f;
-            ujAtlag.m200-=reszveny.napok[index].zaras/200.0f;
-            ujAtlag.m100+=nap.zaras/100.0f;
-            ujAtlag.m100-=reszveny.napok[index+100].zaras/100.0f;
-            ujAtlag.m50+=nap.zaras/50.0f;
-            ujAtlag.m50-=reszveny.napok[index+150].zaras/50.0f;
-            ujAtlag.zaras=reszveny.napok[index+200].zaras;
-            reszveny.mozgoatlag.push_back(ujAtlag);
-            */
         }
     }
     elemek = split(elemek[0],".");
     reszveny.nev=elemek[0];
-    cout<<reszveny.nev<<endl;
+    ///cout<<reszveny.nev<<endl;
+}
+
+void valami(Reszveny& reszveny, string fajlnev){
+    reszveny.mozgoatlag.clear(); reszveny.napok.clear(); reszveny.nev="";
+    reszveny.mozgoatlag.resize(200);
+    for (int i=0; i<1000;i++){
+        int r = rand();
+        Nap nap; nap.datum.ev=r%2; nap.datum.honap=r%4; nap.datum.nap=r%8;
+        nap.maximum = r%3;
+        nap.minimum = r%5;
+        nap.nyitas = r%6;
+        nap.zaras = r%7;
+        reszveny.napok.push_back(nap);
+        if (reszveny.napok.size()>200){
+            for (float n=1.0f; n<=200; n++){
+                if (reszveny.napok.size()<n) continue;
+                if (reszveny.napok.size()==n) {
+                    continue;
+                }
+                reszveny.mozgoatlag[n-1].hossz=n;
+                reszveny.mozgoatlag[n-1].datum.push_back(nap.datum);
+                reszveny.mozgoatlag[n-1].zaras.push_back(nap.zaras);
+                reszveny.mozgoatlag[n-1].nyitas.push_back(nap.nyitas);
+                float atlag = 0;
+                for (int k=reszveny.napok.size()-n; k<reszveny.napok.size();k++)
+                    atlag+=reszveny.napok[k].zaras;
+                atlag/=n;
+                reszveny.mozgoatlag[n-1].atlag.push_back(atlag);
+            }
+        }
+    }
 }
 
 vector<Reszveny> reszvenyekParhuzamosBetoltese(vector<string> fajlnevek){
-    vector<Reszveny> osszesReszveny; osszesReszveny.reserve(100000);
-    int thCnt = 4;
+    vector<Reszveny> osszesReszveny; osszesReszveny.reserve(2000);
+    int thCnt =4;
     vector<thread> szalak; szalak.resize(thCnt);
     vector<Reszveny> reszvenyek; reszvenyek.resize(thCnt);
 
     cout<<"CNT: "<<fajlnevek.size()<<endl;
+    clock_t t1 = clock();
     clock_t t2 = clock();
     clock_t t3 = clock();
     for (size_t i=0; i<fajlnevek.size();){
         int savedI = i;
+        t1=clock();
         for (int j=0; j<thCnt; j++){
             szalak[j] = thread(reszvenyBetoltese,ref(reszvenyek[j]),fajlnevek[i]);
             i++;
             if (i>=fajlnevek.size()) break;
         }
+        //cout<<clock()-t1<<endl;
 
         float ts = 0;
         for (int j=0; j<thCnt; j++){
             if (savedI+j>=fajlnevek.size()) continue;
             clock_t t1 = clock();
-            if (szalak[j].joinable())
+            //if (szalak[j].joinable())
                 szalak[j].join();
+                //thread.
             if (clock()-t2>=5000){
                 cout<<savedI+j<<" "<<clock()-t2<<" i "<<ts<<" - "<<(float)(clock()-t3)/(float)(savedI+j)<<endl;
                 t2=clock();
             }
             osszesReszveny.push_back(reszvenyek[j]);
         }
+        //cout<<clock()-t1<<endl;
     }
-    //for (int i=0; i<thCnt; i++)
-      //  szalak[i].join();
     return osszesReszveny;
 }
 
@@ -619,10 +638,12 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
             float itn;
             float su = modf(tores/0.0002f,&itn);
             if (su<0) itn-=1;
+            if (itn+50>=100) itn=49;
+            if (itn+50<0) itn = -50;
             ///cout<<"i4: "<<i<<" "<<itn<<endl;
-            if (tores>0.0037f && tendencia==0 && sorrend==0){/// && reszvenyekGpu[k].nev=="AMD"){
+            if (tores>0.00379f && tendencia==0 && sorrend==0){/// && reszvenyekGpu[k].nev=="AMD"){
             //if (reszvenyekGpu[k].nev=="AMD"){
-                ///cout<<(int)reszvenyekGpu[k].mozgoatlagokDatum[i]<<" "<<esetSzam<<" "<<tores<<" "<<b2<<" "<<b1<<" "<<b1-b2<<" "<<ma22<<" "<<reszvenyekGpu[k].nev<<endl;
+                ///cout<<reszvenyekGpu[k].mozgoatlagokDatum[i]<<" "<<esetSzam<<" "<<tores<<" "<<b2<<" "<<b1<<" "<<b1-b2<<" "<<ma22<<" "<<reszvenyekGpu[k].nev<<" "<<itn<<endl;
             }
             if (itn<0){
                 for (int u=itn+50; 0<=u && u<50; u++){
@@ -632,9 +653,9 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
                 }
             } else {
                 for (int u=itn+50; 100>u && u>=50; u--){
-                    if (esetSzam+u*48==3312) cout<<"BAJ "<<tendencia<<" "<<sorrend<<" "<<tores<<endl;
-                    if (tores>0.0037f && tendencia==0 && sorrend==0 && esetSzam+u*48==3312) cout<<"OK "<<peldak[esetSzam+u*48].size()<<" "<<esetSzam+u*48<<endl;
-                    ///cout<<u<<" "<<esetSzam+u*48<<endl;
+                    ///if (esetSzam+u*48==3312) cout<<"BAJ "<<tendencia<<" "<<sorrend<<" "<<tores<<endl;
+                    ///if (tores>0.00379f && tendencia==0 && sorrend==0 && esetSzam+u*48==3312) cout<<"OK "<<peldak[esetSzam+u*48].size()<<" "<<esetSzam+u*48<<endl;
+
                     peldak[esetSzam+u*48].push_back(p);
                 }
             }
@@ -674,16 +695,18 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
     if (ert==-1)cout<<"STEP 4 "<<clock()-t1<<endl;
     t1 = clock();
     for (int l=0; l<4800; l++){
+            /*
         if (paramok[l].ms==params.ms && paramok[l].tores>0.0037f && paramok[l].tores<0.0039f && paramok[l].mi==params.mi){
 
         }
         else {
-            //if (paramok[l].toresAlatt==false){
+            //if (paramok[l].toresAlatt==false)
               //  cout<<paramok[l].adasVeteliNapok<<paramok[l].buy<<paramok[l].mi<<paramok[l].ms<<paramok[l].tores<<endl;
                 //cout<<params.adasVeteliNapok<<params.buy<<params.mi<<params.ms<<params.tores<<endl;
-            //}
+            //
             continue;
         }
+        */
         ///cout<<"STEP 4.1 "<<l<<endl;
         sort(peldak[l].begin(),peldak[l].end());
         //list<PeldaGPU> osszesPeldaList;
@@ -695,7 +718,7 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
             scores[zz].clrt();
         if (peldak[l].size()==0) continue;
 
-        cout<<l<<" "<<peldak[l].size()<<" "<<peldak[l].size()<<endl;
+        //cout<<l<<" "<<peldak[l].size()<<" "<<peldak[l].size()<<endl;
 
         vector<vector<float>> napiErtek(4);
         for (int k=0; k<4; k++)
@@ -720,15 +743,20 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
                 ev=osszesDatum[i].ev;
                 ///napiErtek[i+0]=100;
                 ///napiErtek[i+1]=100;
+                ///cout<<"HALI"<<endl;
                 for (int zz=0;zz<4;zz++){
                     scores[zz].evVegiek[ev-2001]=eviErtekek[zz].back();
+                    ///cout<<scores[zz].evVegiek[ev-2001]<<" ";
                     eviNapok[zz].push_back(eviErtekek[zz]);
                     eviErtekek[zz].clear();
                 }
+                ///cout<<endl;
             }
             ///cout<<"N2: "<<i<<endl;
             vector<vector<float>> ertekek(4);
             ///if (datumok.find(osszesDatum[i])==datumok.end()){eviErtekek.push_back(napiErtek[i]); continue;}
+            //for (int zz=0;zz<4; zz++)
+              //  eviErtekek[zz].push_back(napiErtek[zz][i]);
             ///for (int j=0; j<osszesPelda.size(); j++){
             bool vanPelda = false;
             if (tobeUsed<peldak[l].size()){
@@ -766,6 +794,7 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
             float foszto = oszto;
             for (int zz=0;zz<4; zz++){
                 scores[zz].egyNapMaximum=max(oszto,scores[zz].egyNapMaximum);
+                scores[zz].alkalmakEvente[ev-2000]+=oszto;
                 ///cout<<score.egyNapMaximum<<endl;
 
                 for (int j=0; j<oszto; j++){
@@ -803,6 +832,7 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
         scores[3].param.buy = false;
         scores[3].param.adasVeteliNapok = 1;
         for (int zz=0;zz<4; zz++){
+            ///cout<<scores[zz].evVegiek[24]<<endl;
             allScores[l*4+zz]=scores[zz];
         }
     }
@@ -906,8 +936,8 @@ int getScore(vector<Reszveny>& reszvenyek, Parameterek& params, Score& score, ve
 
             itrCnt3++;
 
-            if (reszvenyek[i].nev=="AMD"){
-                cout<<reszvenyek[i].mozgoatlag[params.m2].datum[k].toString()<<endl;
+            if (reszvenyek[i].nev=="MA"){
+                ///cout<<reszvenyek[i].mozgoatlag[params.m2].datum[k].toString()<<endl;
             }
             //cout<<reszvenyek[i].nev<<endl;
 
@@ -1115,7 +1145,7 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
 
 int main(){
     clock_t fullT = clock();
-    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("stocks.txt","data");
+    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("ossz24_09.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
     vector<Datum> osszesDatum = getOsszesDatum(reszvenyek);
     clock_t time0 = clock();
@@ -1134,7 +1164,7 @@ int main(){
 
     ///return 0;
 
-    bool speedTest = true;
+    bool speedTest = false;
     if (speedTest){
         Parameterek params; params.m1=13; params.m2=19; params.m3=49;
         params.adasVeteliNapok=1;
@@ -1149,7 +1179,7 @@ int main(){
         vector<Score> allScores(4800*4);
         clock_t time1 = clock();
         getScore2(reszvenyekGPU,params,allScores,osszesDatum,-2);
-        for (int i=0; i<allScores.size();i++){
+        for (int i=0; false &&i<allScores.size();i++){
             if (allScores[i].egyNapMaximum!=0 && allScores[i].param.tores>0.0037f
                  && allScores[i].param.tores<0.0039f){
 
@@ -1381,6 +1411,7 @@ int main(){
                 cout<<savedI+j<<" "<<clock()-t2<<" i "<<ts<<" - "<<(float)(clock()-t3)/(float)(savedI+j-0)<<endl;
                 t2=clock();
             }
+            //cout<<"KOK"<<endl;
             //t2=clock();
             ///cout<<savedI+j<<endl;
             ///cout<<scores[j].diffDays<<endl;
@@ -1389,18 +1420,21 @@ int main(){
 
 
             /// EZ KELL!!!
-            /**ofile<<parameterekMA[savedI+j].m1<<" "<<parameterekMA[savedI+j].m2<<" "<<parameterekMA[savedI+j].m3<<" "<<parameterek[savedI+j].adasVeteliNapok<<" ";
-            ofile<<parameterek[savedI+j].buy<<" "<<parameterek[savedI+j].toresAlatt<<" "<<parameterek[savedI+j].mi<<" "<<parameterek[savedI+j].ms<<" ";
-            ofile<<parameterek[savedI+j].tores<<" ";
-            ofile<<scores[j].atlagosNapiProfit<<" "<<scores[j].atlagosProfit<<" "<<scores[j].egyNapMaximum<<" ";//<<endl;
-            for (int i=0;i<25;i++){
-                ofile<<scores[j].alkalmakEvente[i]<<" ";
+            for (int i=0; i<allScores[j].size(); i++){
+                ///Score.param. allScores[j][i].param
+                ofile<<allScores[j][i].param.m1<<" "<<allScores[j][i].param.m2<<" "<<allScores[j][i].param.m3<<" "<<allScores[j][i].param.adasVeteliNapok<<" ";
+                ofile<<allScores[j][i].param.buy<<" "<<allScores[j][i].param.toresAlatt<<" "<<allScores[j][i].param.mi<<" "<<allScores[j][i].param.ms<<" ";
+                ofile<<allScores[j][i].param.tores<<" ";
+                ofile<<allScores[j][i].atlagosNapiProfit<<" "<<allScores[j][i].atlagosProfit<<" "<<allScores[j][i].egyNapMaximum<<" ";//<<endl;
+                for (int k=0;k<25;k++){
+                    ofile<<allScores[j][i].alkalmakEvente[k]<<" ";
+                }
+                for (int k=0;k<25;k++){
+                    ofile<<allScores[j][i].evVegiek[k]<<" ";
+                }
+                ofile<<endl;
             }
-            for (int i=0;i<25;i++){
-                ofile<<scores[j].evVegiek[i]<<" ";
-            }
-            ofile<<endl;
-            */
+
         }
 
         ///cout<<endl<<endl<<"FOR"<<endl<<endl;

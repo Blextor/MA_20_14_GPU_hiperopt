@@ -287,6 +287,7 @@ void reszvenyBetoltese(Reszveny& reszveny, string fajlnev){
     getline(ifileStockData,toSplit);
     vector<string> lines; lines.reserve(10000);
     ///cout<<"OK"<<endl;
+    int MOZGO_CNT = 50;
     while (!ifileStockData.eof()){
         getline(ifileStockData,toSplit);
         if (toSplit.size()>2)
@@ -294,8 +295,8 @@ void reszvenyBetoltese(Reszveny& reszveny, string fajlnev){
     }
     ///cout<<"OK2"<<endl;
     vector<string> elemek;
-    reszveny.mozgoatlag.resize(200);
-    vector<list<MozgoAtlag>> mozgAtlgk(200);
+    reszveny.mozgoatlag.resize(MOZGO_CNT);
+    vector<list<MozgoAtlag>> mozgAtlgk(MOZGO_CNT);
     for (string str: lines){
         ///cout<<"OK3"<<endl;
         ///cout<<str<<endl;
@@ -313,7 +314,7 @@ void reszvenyBetoltese(Reszveny& reszveny, string fajlnev){
         reszveny.napok.push_back(nap);
         ///if (nap.datum.ev<2000) continue;
 
-        for (float n=1.0f; n<=200; n++){
+        for (float n=1.0f; n<=MOZGO_CNT; n++){
             if (reszveny.napok.size()<n) continue;
             if (reszveny.napok.size()==n) {
                 continue;
@@ -565,6 +566,8 @@ struct Score{
     float atlagosNapiProfit=0;
     Parameterek param;
 
+    float maxLoss = 2.0f, minProfit = 0.0f;
+
     void clrt(){
         evVegiek.clear(); evVegiek.resize(25);
         teljes.clear(); osszesPelda.clear();
@@ -572,6 +575,37 @@ struct Score{
         egyNapMaximum=0;
         atlagosNapiProfit=0;
         atlagosProfit=0;
+    }
+
+    void chkProf(){
+        for (int i=0; i<25; i++){
+            if (i==0){
+                maxLoss=evVegiek[0]/100.0f;
+                minProfit=evVegiek[0]/100.0f;
+            } else {
+                maxLoss=min(evVegiek[i]/evVegiek[i-1],maxLoss);
+                minProfit=max(evVegiek[i]/evVegiek[i-1],minProfit);
+            }
+        }
+    }
+
+    void print(){
+        cout<<param.m1<<" "<<param.m2<<" "<<param.m3<<" "<<param.adasVeteliNapok<<" "<<param.buy<<" ";
+        cout<<param.mi<<" "<<param.ms<<" "<<param.tores<<" "<<param.toresAlatt<<endl;
+        cout<<egyNapMaximum<<" "<<atlagosProfit<<" "<<atlagosNapiProfit<<endl;
+        for (int i=0; i<25; i++)
+            cout<<alkalmakEvente[i]<<" ";
+        cout<<endl;
+        for (int i=0; i<25; i++)
+            cout<<evVegiek[i]<<" ";
+        cout<<endl;
+        cout<<maxLoss<<" "<<minProfit<<endl;
+    }
+    void pt(){
+        for(int i=0; i<teljes.size(); i++){
+            cout<<teljes[i]<<" ";
+        }
+        cout<<endl;
     }
 };
 
@@ -777,14 +811,28 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
                     float masnapiZaras = reszvenyekGpu[stockIdx].mozgoatlagokZaras[mozgoAtlagIdx+1];
                     float harmadnapiZaras = reszvenyekGpu[stockIdx].mozgoatlagokZaras[mozgoAtlagIdx+2];
 
+                    float e0 = masnapiZaras/aznapiZaras-1.0f;
+                    float e1 = -(masnapiZaras/aznapiZaras-1.0f);
+                    float e2 = harmadnapiZaras/masnapiZaras-1.0f;
+                    float e3 = -(harmadnapiZaras/masnapiZaras-1.0f);
+
+                    if (e0>0.8f || e1>0.8f || e2>0.8f || e3>0.8f){
+                        tobeUsed++;
+                        if (tobeUsed>=peldak[l].size()){break;}
+                        continue;
+                    }
+
                     ertekek[0].push_back(masnapiZaras/aznapiZaras-1.0f);
                     ertekek[1].push_back(-(masnapiZaras/aznapiZaras-1.0f));
                     ertekek[2].push_back(harmadnapiZaras/masnapiZaras-1.0f);
                     ertekek[3].push_back(-(harmadnapiZaras/masnapiZaras-1.0f));
 
-                    if (tobeUsed>=peldak[l].size()){cout<<888888<<endl;break;}
+                    if (ertekek[0].back()>2) cout<<"HUPSZ0 "<<masnapiZaras<<" "<<aznapiZaras<<" "<<reszvenyekGpu[stockIdx].nev<<" "<<reszvenyekGpu[stockIdx].mozgoatlagokDatum[mozgoAtlagIdx]<<endl;
+                    if (ertekek[1].back()>2) cout<<"HUPSZ1 "<<masnapiZaras<<" "<<aznapiZaras<<" "<<reszvenyekGpu[stockIdx].nev<<" "<<reszvenyekGpu[stockIdx].mozgoatlagokDatum[mozgoAtlagIdx]<<endl;
+                    if (ertekek[2].back()>2) cout<<"HUPSZ2 "<<harmadnapiZaras<<" "<<masnapiZaras<<" "<<reszvenyekGpu[stockIdx].nev<<" "<<reszvenyekGpu[stockIdx].mozgoatlagokDatum[mozgoAtlagIdx]<<endl;
+                    if (ertekek[3].back()>2) cout<<"HUPSZ3 "<<harmadnapiZaras<<" "<<masnapiZaras<<" "<<reszvenyekGpu[stockIdx].nev<<" "<<reszvenyekGpu[stockIdx].mozgoatlagokDatum[mozgoAtlagIdx]<<endl;
+
                     tobeUsed++;
-                    if (tobeUsed>peldak[l].size()){cout<<888999<<endl;break;}
                     if (tobeUsed>=peldak[l].size()){break;}
                 }
             }
@@ -800,6 +848,7 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
                 for (int j=0; j<oszto; j++){
                     float tempSum = 0;
                     if (i+1<napiErtek[zz].size()){
+                        ///if (ertekek[zz][j]/foszto > 1) cout<<"AJJAJ"<<endl;
                         napiErtek[zz][i+1]+=napiErtek[zz][i]*ertekek[zz][j]/foszto;
                         tempSzum[zz]+=ertekek[zz][j];
                         tempSum+=ertekek[zz][j];;
@@ -833,6 +882,7 @@ int getScore2(vector<ReszvenyGPU>& reszvenyekGpu, Parameterek& params, vector<Sc
         scores[3].param.adasVeteliNapok = 1;
         for (int zz=0;zz<4; zz++){
             ///cout<<scores[zz].evVegiek[24]<<endl;
+            scores[zz].chkProf();
             allScores[l*4+zz]=scores[zz];
         }
     }
@@ -1100,6 +1150,10 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
         rgpu.mozgoatlagokAtlag.resize(MOZGO_CNT,vector<float>(osszesDatum.size()));
         rgpu.mozgoatlagokZaras.resize(osszesDatum.size());
         rgpu.mozgoatlagokDatum.resize(osszesDatum.size());
+        for (int z=0; z<osszesDatum.size(); z++){
+            rgpu.mozgoatlagokZaras[z]=-1;
+        }
+
         rgpu.N=osszesDatum.size();
         for (int j=0; j<MOZGO_CNT; j++){
             ///cout<<"J "<<j<<endl;
@@ -1119,7 +1173,6 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
                 if (osszesDatum[z]<reszvenyek[i].mozgoatlag[j].datum[midx]){
                     ///if (i==469 && j==20 && z==137) cout<<"PEKING1"<<endl;
                     rgpu.mozgoatlagokAtlag[j][z]=-1;
-                    rgpu.mozgoatlagokZaras[z]=-1;
                     rgpu.mozgoatlagokDatum[z]=osszesDatum[z].toInt();
                     continue;
                 }
@@ -1151,6 +1204,7 @@ int main(){
     clock_t time0 = clock();
     cout<<"DONE "<<osszesDatum.size()<<endl;
     vector<ReszvenyGPU> reszvenyekGPU = getReszvenyekGPU(reszvenyek, osszesDatum);
+    reszvenyek.clear();
     ///cout<<reszvenyekGPU[1].nev<<endl;
     ///for (int i=0; i<reszvenyekGPU[1].mozgoatlagokDatum.size(); i++){
         ///if (osszesDatum[i].ev<2024) continue;
@@ -1375,14 +1429,19 @@ int main(){
 
     vector<Score> scoresAll;
 
+    vector<Parameterek> ptemps(1400);
+    for (int i=0; i<1400; i++)
+        ptemps[i-0]=parameterekMA[i];
+    parameterekMA = ptemps;
+
     list<Score> ertekek; ertekek.resize(thCnt);
     cout<<"CNT: "<<cnt<<" "<<parameterekMA.size()<<endl;
     clock_t t2 = clock();
     clock_t t3 = clock();
-    ofstream ofile("nalassuk.txt");
+    ofstream ofile("nalassuk0000.txt");
     vector<vector<Score>> allScores(thCnt,vector<Score>(4800*4));
-    vector<Score> allScores1(4800*4);
-    vector<Score> allScores2(4800*4);
+    vector<Score> saved;
+    float maxProfNap = 0.0f, maxProfAtl = 0.0f, maxProf = 0.0f, minLoss = 2.0f, maxVeg = 0.0f, minVeg = 10000.0f;
     for (size_t i=0; i<parameterekMA.size();){
         int savedI = i;
         for (int j=0; j<thCnt; j++){
@@ -1408,7 +1467,7 @@ int main(){
                 szalak[j].join();
             //if ((savedI+j)%1000==0)
             if (clock()-t2>=5000){
-                cout<<savedI+j<<" "<<clock()-t2<<" i "<<ts<<" - "<<(float)(clock()-t3)/(float)(savedI+j-0)<<endl;
+                cout<<savedI+j<<", saved: "<<saved.size()<<", "<<clock()-t2<<" i "<<ts<<" - "<<(float)(clock()-t3)/(float)(savedI+j-0)<<endl;
                 t2=clock();
             }
             //cout<<"KOK"<<endl;
@@ -1421,7 +1480,57 @@ int main(){
 
             /// EZ KELL!!!
             for (int i=0; i<allScores[j].size(); i++){
+                if (allScores[j][i].teljes.size()!=6225) continue;
+
+                Score score = allScores[j][i];
+                if (score.evVegiek[24]>10000 || score.evVegiek[24]<1){
+                    bool toSave = false;
+                    if (maxProfNap<score.atlagosNapiProfit){
+                        cout<<"NAP"<<endl;
+                        cout<<saved.size()<<" "; score.print();
+                        maxProfNap=score.atlagosNapiProfit;
+                        toSave = true;
+                    }
+                    if (maxProfAtl<score.atlagosProfit){
+                        cout<<"ATL"<<endl;
+                        cout<<saved.size()<<" "; score.print();
+                        maxProfAtl=score.atlagosProfit;
+                        toSave = true;
+                    }
+                    if (maxProf<score.maxLoss){
+                        cout<<"PROF"<<endl;
+                        cout<<saved.size()<<" "; score.print();
+                        maxProf=score.maxLoss;
+                        toSave = true;
+                    }
+                    if (minLoss>score.minProfit){
+                        cout<<"LOSS"<<endl;
+                        cout<<saved.size()<<" "; score.print();
+                        minLoss=score.minProfit;
+                        toSave = true;
+                    }
+                    if (minVeg>score.evVegiek[24]){
+                        cout<<"MIN"<<endl;
+                        cout<<saved.size()<<" "; score.print();
+                        minVeg=score.evVegiek[24];
+                        toSave = true;
+                    }
+                    if (maxVeg<score.evVegiek[24]){
+                        cout<<"MAX"<<endl;
+                        cout<<saved.size()<<" "; score.print();
+                        maxVeg=score.evVegiek[24];
+                        toSave = true;
+                    }
+                    if (toSave){
+                        saved.push_back(score);
+                    }
+                }
+
+
+
+                continue;
                 ///Score.param. allScores[j][i].param
+                /*
                 ofile<<allScores[j][i].param.m1<<" "<<allScores[j][i].param.m2<<" "<<allScores[j][i].param.m3<<" "<<allScores[j][i].param.adasVeteliNapok<<" ";
                 ofile<<allScores[j][i].param.buy<<" "<<allScores[j][i].param.toresAlatt<<" "<<allScores[j][i].param.mi<<" "<<allScores[j][i].param.ms<<" ";
                 ofile<<allScores[j][i].param.tores<<" ";
@@ -1431,8 +1540,30 @@ int main(){
                 }
                 for (int k=0;k<25;k++){
                     ofile<<allScores[j][i].evVegiek[k]<<" ";
-                }
-                ofile<<endl;
+                }*/
+                //for (int k=0; k<allScores[j][i].teljes.size(); k++){
+                  //  ofile<<allScores[j][i].teljes[k]<<" ";
+                //}
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].param.m1), sizeof(int));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].param.m2), sizeof(int));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].param.m3), sizeof(int));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].param.adasVeteliNapok), sizeof(int));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].param.buy), sizeof(bool));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].param.toresAlatt), sizeof(bool));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].param.mi), sizeof(int));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].param.ms), sizeof(int));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].atlagosNapiProfit), sizeof(float));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].atlagosProfit), sizeof(float));
+                ofile.write(reinterpret_cast<const char*>(&allScores[j][i].egyNapMaximum), sizeof(int));
+                ofile.write(reinterpret_cast<const char*>(allScores[j][i].alkalmakEvente.data()), allScores[j][i].alkalmakEvente.size() * sizeof(int));
+                ofile.write(reinterpret_cast<const char*>(allScores[j][i].evVegiek.data()), allScores[j][i].evVegiek.size() * sizeof(float));
+                ofile.write(reinterpret_cast<const char*>(allScores[j][i].teljes.data()), allScores[j][i].teljes.size() * sizeof(float));
+                //if (allScores[j][i].teljes.size()!=0){
+                //cout<<allScores[j][i].teljes.size()<<" "<< allScores[j][i].evVegiek.size()<<" "<<allScores[j][i].alkalmakEvente.size()<<endl;
+                //ofile.close();
+                return 0;
+                //}
+                //ofile<<endl;
             }
 
         }
@@ -1442,6 +1573,15 @@ int main(){
         ///Sleep(1);
 
     }
+    system("cls");
+    for (int i=0; i<saved.size(); i++){
+        saved[i].print();
+        saved[i].pt();
+    }
+
+    int input;
+    cin>>input;
+    cout<<input*2;
 
     /*Parameterek params; params.m1=13; params.m2=19; params.m3=49;
                             params.adasVeteliNapok=0;
@@ -1453,6 +1593,7 @@ int main(){
     cout<<"TIME: "<<(clock()-t)<<endl;
     cout<<"CNT: "<<cnt<<" "<<parameterekMA.size()<<endl;
 
+    ofile.close();
 
 
 

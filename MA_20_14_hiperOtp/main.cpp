@@ -607,6 +607,25 @@ struct Score{
         }
         cout<<endl;
     }
+
+    void op(ofstream& of){
+        of<<param.m1<<" "<<param.m2<<" "<<param.m3<<" "<<param.adasVeteliNapok<<" "<<param.buy<<" ";
+        of<<param.mi<<" "<<param.ms<<" "<<param.tores<<" "<<param.toresAlatt<<endl;
+        of<<egyNapMaximum<<" "<<atlagosProfit<<" "<<atlagosNapiProfit<<endl;
+        for (int i=0; i<25; i++)
+            of<<alkalmakEvente[i]<<" ";
+        of<<endl;
+        for (int i=0; i<25; i++)
+            of<<evVegiek[i]<<" ";
+        of<<endl;
+        of<<maxLoss<<" "<<minProfit<<endl;
+    }
+    void opt(ofstream& of){
+        for(int i=0; i<teljes.size(); i++){
+            of<<teljes[i]<<" ";
+        }
+        of<<endl;
+    }
 };
 
 bool chkSorrend(const float& a, const float& b, const float& c){
@@ -1429,9 +1448,9 @@ int main(){
 
     vector<Score> scoresAll;
 
-    vector<Parameterek> ptemps(1400);
-    for (int i=0; i<1400; i++)
-        ptemps[i-0]=parameterekMA[i];
+    vector<Parameterek> ptemps(parameterekMA.size()-2800);
+    for (int i=2800; i<parameterekMA.size(); i++)
+        ptemps[i-2800]=parameterekMA[i];
     parameterekMA = ptemps;
 
     list<Score> ertekek; ertekek.resize(thCnt);
@@ -1573,10 +1592,12 @@ int main(){
         ///Sleep(1);
 
     }
-    system("cls");
+    ///system("cls");
+
+    ofstream of("3700.txt");
     for (int i=0; i<saved.size(); i++){
-        saved[i].print();
-        saved[i].pt();
+        saved[i].op(of);
+        saved[i].opt(of);
     }
 
     int input;

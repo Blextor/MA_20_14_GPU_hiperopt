@@ -1217,7 +1217,7 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
 
 int main(){
     clock_t fullT = clock();
-    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("ossz24_09.txt","data");
+    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("etoroStocks.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
     vector<Datum> osszesDatum = getOsszesDatum(reszvenyek);
     clock_t time0 = clock();
@@ -1317,9 +1317,9 @@ int main(){
 
     int cnt2 = 0;
     vector<Parameterek> parameterekMA;
-    for (int i1=4; i1<=21; i1++){
-        for (int i2=i1+5; i2<49; i2++){
-            for (int i3=i2+5; i3<=49; i3+=2){
+    for (int i1=3; i1<=21; i1++){
+        for (int i2=i1+1; i2<49; i2++){
+            for (int i3=i2+1; i3<=49; i3+=2){
                 Parameterek params; params.m1=i1; params.m2=i2; params.m3=i3;
                 parameterekMA.push_back(params);
                 cnt2++;
@@ -1327,6 +1327,8 @@ int main(){
         }
     }
 
+    //cout<<parameterekMA.size()<<endl;
+    //return 0;
 
 
 
@@ -1448,10 +1450,16 @@ int main(){
 
     vector<Score> scoresAll;
 
-    vector<Parameterek> ptemps(parameterekMA.size()-2800);
-    for (int i=2800; i<parameterekMA.size(); i++)
-        ptemps[i-2800]=parameterekMA[i];
+    vector<Parameterek> ptemps(parameterekMA.size()-4400);
+    for (int i=4400; i<parameterekMA.size(); i++)
+        ptemps[i-4400]=parameterekMA[i];
     parameterekMA = ptemps;
+    /**
+    vector<Parameterek> ptemps(2200);
+    for (int i=2200; i<4400; i++)
+        ptemps[i-2200]=parameterekMA[i];
+    parameterekMA = ptemps;
+    */
 
     list<Score> ertekek; ertekek.resize(thCnt);
     cout<<"CNT: "<<cnt<<" "<<parameterekMA.size()<<endl;
@@ -1594,7 +1602,7 @@ int main(){
     }
     ///system("cls");
 
-    ofstream of("3700.txt");
+    ofstream of("6600VeT2.txt");
     for (int i=0; i<saved.size(); i++){
         saved[i].op(of);
         saved[i].opt(of);

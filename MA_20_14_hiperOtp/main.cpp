@@ -1223,7 +1223,7 @@ int main(){
     clock_t time0 = clock();
     cout<<"DONE "<<osszesDatum.size()<<endl;
     vector<ReszvenyGPU> reszvenyekGPU = getReszvenyekGPU(reszvenyek, osszesDatum);
-    reszvenyek.clear();
+    ///reszvenyek.clear();
     ///cout<<reszvenyekGPU[1].nev<<endl;
     ///for (int i=0; i<reszvenyekGPU[1].mozgoatlagokDatum.size(); i++){
         ///if (osszesDatum[i].ev<2024) continue;
@@ -1234,6 +1234,95 @@ int main(){
     ///ResGpu resGpu = getResGpu(reszvenyekGPU);
     clock_t time01 = clock();
     cout<<"DONE 2: "<<time01-time0<<endl;
+
+    bool candleTest=true;
+    if (candleTest){
+        set<Eset> esetek1;
+        set<Eset> esetek2;
+        vector<Par> parok(20);
+        for (int i=0; i<reszvenyek.size(); i++){
+            float zarasok[5];
+            float maxok[5];
+            float minek[5];
+            float nyitasok[5];
+            for (int j=0; j+2<reszvenyek[i].napok.size(); j++){
+                for (int k=0; k<4; k++){
+                    zarasok[k]=zarasok[k+1];
+                    maxok[k]=maxok[k+1];
+                    minek[k]=minek[k+1];
+                    nyitasok[k]=nyitasok[k+1];
+                }
+                zarasok[4] = reszvenyek[i].napok[j].zaras;
+                maxok[4] = reszvenyek[i].napok[j].maximum;
+                minek[4] = reszvenyek[i].napok[j].minimum;
+                nyitasok[4] = reszvenyek[i].napok[j].nyitas;
+                if (j<4) continue;
+
+                string abc = "abcdefghijklmnopqrstuvwxyz";
+                for (int k=0; k<5; k++){
+                    Par par1; par1.ertek=zarasok[k];    par1.karakter=abc[0+k*4]; parok[0+k*4] = par1;
+                    Par par2; par2.ertek=maxok[k];      par2.karakter=abc[1+k*4]; parok[1+k*4] = par2;
+                    Par par3; par3.ertek=minek[k];      par3.karakter=abc[2+k*4]; parok[2+k*4] = par3;
+                    Par par4; par4.ertek=nyitasok[k];   par4.karakter=abc[3+k*4]; parok[3+k*4] = par4;
+                }
+                sort(parok.begin(), parok.end());
+                string str="aaaaaaaaaaaaaaaaaaaa";
+                for (int k=0; k<20; k++){
+                    str[k]=parok[k].karakter;
+                }
+                float kovetkezoZaras = reszvenyek[i].napok[j+1].zaras;
+                float aztKovetoZaras = reszvenyek[i].napok[j+2].zaras;
+                Eset eset1; eset1.charChain=str; eset1.osszesEset=1;
+                eset1.prod = kovetkezoZaras/zarasok[4]; eset1.szum = kovetkezoZaras/zarasok[4]-1.0f;
+                Eset eset2; eset2.charChain=str; eset2.osszesEset=1;
+                eset2.prod = aztKovetoZaras/zarasok[4]; eset2.szum = aztKovetoZaras/zarasok[4]-1.0f;
+                set<Eset>::iterator it1=esetek1.find(eset1);
+                set<Eset>::iterator it2=esetek2.find(eset2);
+                if (it1==esetek1.end()){
+                    esetek1.insert(eset1);
+                }
+                else {
+                    Eset temp = *it1;
+                    temp.osszesEset++;
+                    if (eset1.prod>1)
+                        temp.pozitivEset++;
+                    temp.prod*=eset1.prod;
+                    temp.szum+=eset1.prod-1.0f;
+                    esetek1.erase(it1);
+                    esetek1.insert(temp);
+                }
+                if (it2==esetek2.end()){
+                    esetek2.insert(eset2);
+                }
+                else {
+                    Eset temp = *it2;
+                    temp.osszesEset++;
+                    if (eset2.prod>1)
+                        temp.pozitivEset++;
+                    temp.prod*=eset2.prod;
+                    temp.szum+=eset2.prod-1.0f;
+                    esetek2.erase(it2);
+                    esetek2.insert(temp);
+                }
+            }
+            cout<<"ES1: "<<esetek1.size()<<", ES2: "<<esetek2.size()<<endl;
+        }
+
+        ofstream ofile1("esetek1.txt");
+        for(Eset eset: esetek1){
+            ofile1<<eset.charChain<<" "<<eset.osszesEset<<" "<<eset.pozitivEset<<" "<<eset.pozitivEset/eset.osszesEset<<" "<<eset.szum<<" "<<eset.prod<<endl;
+        }
+        ofile1.close();
+        ofstream ofile2("esetek2.txt");
+        for(Eset eset: esetek2){
+            ofile2<<eset.charChain<<" "<<eset.osszesEset<<" "<<eset.pozitivEset<<" "<<eset.pozitivEset/eset.osszesEset<<" "<<eset.szum<<" "<<eset.prod<<endl;
+        }
+        ofile2.close();
+
+        return 0;
+    }
+    reszvenyek.clear();
+
 
     ///return 0;
 

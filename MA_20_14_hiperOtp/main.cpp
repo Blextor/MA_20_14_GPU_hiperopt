@@ -1276,8 +1276,10 @@ int main(){
                 float aztKovetoZaras = reszvenyek[i].napok[j+2].zaras;
                 Eset eset1; eset1.charChain=str; eset1.osszesEset=1;
                 eset1.prod = kovetkezoZaras/zarasok[4]; eset1.szum = kovetkezoZaras/zarasok[4]-1.0f;
+                if (eset1.prod>=1.0f) eset1.pozitivEset=1;
                 Eset eset2; eset2.charChain=str; eset2.osszesEset=1;
                 eset2.prod = aztKovetoZaras/zarasok[4]; eset2.szum = aztKovetoZaras/zarasok[4]-1.0f;
+                if (eset2.prod>=1.0f) eset2.pozitivEset=1;
                 set<Eset>::iterator it1=esetek1.find(eset1);
                 set<Eset>::iterator it2=esetek2.find(eset2);
                 if (it1==esetek1.end()){

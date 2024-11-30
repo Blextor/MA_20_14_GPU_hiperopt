@@ -81,7 +81,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, epochs, 
         for X_batch, y_batch in train_loader:
             X_batch, y_batch = X_batch.to(device), y_batch.to(device)
             optimizer.zero_grad()
-            outputs = model(X_batch).squeeze()
+            outputs = model(X_batch).squeeze().to(device)
             loss = criterion(outputs, y_batch)
             loss.backward()
             optimizer.step()
@@ -93,7 +93,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, epochs, 
         with torch.no_grad():
             for X_batch, y_batch in test_loader:
                 X_batch, y_batch = X_batch.to(device), y_batch.to(device)
-                outputs = model(X_batch).squeeze()
+                outputs = model(X_batch).squeeze().to(device)
                 loss = criterion(outputs, y_batch)
                 val_loss += loss.item()
 
@@ -162,6 +162,7 @@ if __name__ == "__main__":
     # Tanítási paraméterek
     epochs = 50
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(torch.cuda.is_available())
 
     # Modell tanítása
     history = train_model(model, train_loader, test_loader, criterion, optimizer, epochs, device)

@@ -2,14 +2,9 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="Release" />
-	<File name="main.cu" open="0" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="main.cpp" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="0" topLine="756" />
-		</Cursor>
-	</File>
-	<File name="main.cpp" open="0" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="29246" topLine="540" />
+			<Cursor1 position="5497" topLine="180" />
 		</Cursor>
 		<Folding>
 			<Collapse line="16" />
@@ -17,9 +12,12 @@
 			<Collapse line="47" />
 			<Collapse line="74" />
 			<Collapse line="109" />
+			<Collapse line="132" />
 			<Collapse line="165" />
 			<Collapse line="173" />
+			<Collapse line="181" />
 			<Collapse line="186" />
+			<Collapse line="192" />
 			<Collapse line="248" />
 			<Collapse line="329" />
 			<Collapse line="349" />
@@ -33,8 +31,20 @@
 			<Collapse line="483" />
 			<Collapse line="505" />
 			<Collapse line="515" />
+			<Collapse line="547" />
+			<Collapse line="787" />
 			<Collapse line="797" />
 			<Collapse line="861" />
+			<Collapse line="880" />
+			<Collapse line="922" />
+			<Collapse line="956" />
+			<Collapse line="967" />
+			<Collapse line="976" />
 		</Folding>
+	</File>
+	<File name="main.cu" open="1" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="29749" topLine="787" />
+		</Cursor>
 	</File>
 </CodeBlocks_layout_file>

@@ -1239,46 +1239,52 @@ int main(){
     if (candleTest){
         set<Eset> esetek1;
         set<Eset> esetek2;
-        vector<Par> parok(20);
+        string abc = "abcdefghijklmnopqrstuvwxyz";
+        const int napszam=4;
+        vector<Par> parok(napszam*4);
+        stringstream ss;
+        for (int i=0; i<napszam*4; i++)
+            ss<<'a';
+        string str=ss.str();
         for (int i=0; i<reszvenyek.size(); i++){
-            float zarasok[5];
-            float maxok[5];
-            float minek[5];
-            float nyitasok[5];
+            float zarasok[napszam];
+            float maxok[napszam];
+            float minek[napszam];
+            float nyitasok[napszam];
             for (int j=0; j+2<reszvenyek[i].napok.size(); j++){
-                for (int k=0; k<4; k++){
+                for (int k=0; k<napszam-1; k++){
                     zarasok[k]=zarasok[k+1];
                     maxok[k]=maxok[k+1];
                     minek[k]=minek[k+1];
                     nyitasok[k]=nyitasok[k+1];
                 }
-                zarasok[4] = reszvenyek[i].napok[j].zaras;
-                maxok[4] = reszvenyek[i].napok[j].maximum;
-                minek[4] = reszvenyek[i].napok[j].minimum;
-                nyitasok[4] = reszvenyek[i].napok[j].nyitas;
-                if (j<4) continue;
+                zarasok[napszam-1] = reszvenyek[i].napok[j].zaras;
+                maxok[napszam-1] = reszvenyek[i].napok[j].maximum;
+                minek[napszam-1] = reszvenyek[i].napok[j].minimum;
+                nyitasok[napszam-1] = reszvenyek[i].napok[j].nyitas;
+                if (j<napszam-1) continue;
 
-                string abc = "abcdefghijklmnopqrstuvwxyz";
+
                 set<float> ertekek;
-                for (int k=0; k<5; k++){
+                for (int k=0; k<napszam; k++){
                     Par par1; par1.ertek=zarasok[k];    par1.karakter=abc[0+k*4]; parok[0+k*4] = par1; ertekek.insert(zarasok[k]);
                     Par par2; par2.ertek=maxok[k];      par2.karakter=abc[1+k*4]; parok[1+k*4] = par2; ertekek.insert(maxok[k]);
                     Par par3; par3.ertek=minek[k];      par3.karakter=abc[2+k*4]; parok[2+k*4] = par3; ertekek.insert(minek[k]);
                     Par par4; par4.ertek=nyitasok[k];   par4.karakter=abc[3+k*4]; parok[3+k*4] = par4; ertekek.insert(nyitasok[k]);
                 }
-                if (ertekek.size()<14) continue;
+                if (ertekek.size()<(napszam*4*0.7f)) continue;
                 sort(parok.begin(), parok.end());
-                string str="aaaaaaaaaaaaaaaaaaaa";
-                for (int k=0; k<20; k++){
+                //string str="aaaaaaaaaaaaaaaaaaaa";
+                for (int k=0; k<napszam*4; k++){
                     str[k]=parok[k].karakter;
                 }
                 float kovetkezoZaras = reszvenyek[i].napok[j+1].zaras;
                 float aztKovetoZaras = reszvenyek[i].napok[j+2].zaras;
                 Eset eset1; eset1.charChain=str; eset1.osszesEset=1;
-                eset1.prod = kovetkezoZaras/zarasok[4]; eset1.szum = kovetkezoZaras/zarasok[4]-1.0f;
+                eset1.prod = kovetkezoZaras/zarasok[napszam-1]; eset1.szum = kovetkezoZaras/zarasok[napszam-1]-1.0f;
                 if (eset1.prod>=1.0f) eset1.pozitivEset=1;
                 Eset eset2; eset2.charChain=str; eset2.osszesEset=1;
-                eset2.prod = aztKovetoZaras/zarasok[4]; eset2.szum = aztKovetoZaras/zarasok[4]-1.0f;
+                eset2.prod = aztKovetoZaras/zarasok[napszam-1]; eset2.szum = aztKovetoZaras/zarasok[napszam-1]-1.0f;
                 if (eset2.prod>=1.0f) eset2.pozitivEset=1;
                 set<Eset>::iterator it1=esetek1.find(eset1);
                 set<Eset>::iterator it2=esetek2.find(eset2);

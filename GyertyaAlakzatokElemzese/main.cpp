@@ -24,8 +24,8 @@ using namespace std;
 
 int main()
 {
-    ifstream ifile("esetek1.txt");
-    ofstream ofile("esetek1_+20.txt");
+    ifstream ifile("esetek2.txt");
+    ofstream ofile("esetek2_+20.txt");
     int k=0;
     while (!ifile.eof()){
             k++;

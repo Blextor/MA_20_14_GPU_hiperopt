@@ -1259,12 +1259,14 @@ int main(){
                 if (j<4) continue;
 
                 string abc = "abcdefghijklmnopqrstuvwxyz";
+                set<float> ertekek;
                 for (int k=0; k<5; k++){
-                    Par par1; par1.ertek=zarasok[k];    par1.karakter=abc[0+k*4]; parok[0+k*4] = par1;
-                    Par par2; par2.ertek=maxok[k];      par2.karakter=abc[1+k*4]; parok[1+k*4] = par2;
-                    Par par3; par3.ertek=minek[k];      par3.karakter=abc[2+k*4]; parok[2+k*4] = par3;
-                    Par par4; par4.ertek=nyitasok[k];   par4.karakter=abc[3+k*4]; parok[3+k*4] = par4;
+                    Par par1; par1.ertek=zarasok[k];    par1.karakter=abc[0+k*4]; parok[0+k*4] = par1; ertekek.insert(zarasok[k]);
+                    Par par2; par2.ertek=maxok[k];      par2.karakter=abc[1+k*4]; parok[1+k*4] = par2; ertekek.insert(maxok[k]);
+                    Par par3; par3.ertek=minek[k];      par3.karakter=abc[2+k*4]; parok[2+k*4] = par3; ertekek.insert(minek[k]);
+                    Par par4; par4.ertek=nyitasok[k];   par4.karakter=abc[3+k*4]; parok[3+k*4] = par4; ertekek.insert(nyitasok[k]);
                 }
+                if (ertekek.size()<14) continue;
                 sort(parok.begin(), parok.end());
                 string str="aaaaaaaaaaaaaaaaaaaa";
                 for (int k=0; k<20; k++){
@@ -1284,7 +1286,7 @@ int main(){
                 else {
                     Eset temp = *it1;
                     temp.osszesEset++;
-                    if (eset1.prod>1)
+                    if (eset1.prod>=1.0f)
                         temp.pozitivEset++;
                     temp.prod*=eset1.prod;
                     temp.szum+=eset1.prod-1.0f;
@@ -1297,7 +1299,7 @@ int main(){
                 else {
                     Eset temp = *it2;
                     temp.osszesEset++;
-                    if (eset2.prod>1)
+                    if (eset2.prod>=1.0f)
                         temp.pozitivEset++;
                     temp.prod*=eset2.prod;
                     temp.szum+=eset2.prod-1.0f;

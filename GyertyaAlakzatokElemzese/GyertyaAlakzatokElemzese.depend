@@ -1,0 +1,24 @@
+# depslib dependency file v1.0
+1733005088 source:c:\users\bobo\documents\github\ma_20_14_gpu_hiperopt\gyertyaalakzatokelemzese\main.cpp
+	<iostream>
+	<fstream>
+	<string>
+	<vector>
+	<unordered_set>
+	<windows.h>
+	<sstream>
+	<algorithm>
+	<set>
+	<thread>
+	<random>
+	<list>
+	<cmath>
+	<iostream>
+	<vector>
+	<thread>
+	<queue>
+	<mutex>
+	<condition_variable>
+	<functional>
+	<atomic>
+

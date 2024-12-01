@@ -1235,12 +1235,12 @@ int main(){
     clock_t time01 = clock();
     cout<<"DONE 2: "<<time01-time0<<endl;
 
-    bool candleTest=false;
+    bool candleTest=true;
     if (candleTest){
         set<Eset> esetek1;
         set<Eset> esetek2;
         string abc = "abcdefghijklmnopqrstuvwxyz";
-        const int napszam=3;
+        const int napszam=4;
         vector<Par> parok(napszam*4);
         stringstream ss;
         for (int i=0; i<napszam*4; i++)
@@ -1263,7 +1263,7 @@ int main(){
                 minek[napszam-1] = reszvenyek[i].napok[j].minimum;
                 nyitasok[napszam-1] = reszvenyek[i].napok[j].nyitas;
                 if (j<napszam-1) continue;
-
+                if (reszvenyek[i].napok[j].datum.ev<2020) continue;
 
                 set<float> ertekek;
                 for (int k=0; k<napszam; k++){
@@ -1318,12 +1318,12 @@ int main(){
             cout<<"ES1: "<<esetek1.size()<<", ES2: "<<esetek2.size()<<endl;
         }
 
-        ofstream ofile1("esetek1.txt");
+        ofstream ofile1("esetek1_4_2020.txt");
         for(Eset eset: esetek1){
             ofile1<<eset.charChain<<" "<<eset.osszesEset<<" "<<eset.pozitivEset<<" "<<eset.pozitivEset/eset.osszesEset<<" "<<eset.szum<<" "<<eset.prod<<endl;
         }
         ofile1.close();
-        ofstream ofile2("esetek2.txt");
+        ofstream ofile2("esetek2_4_2020.txt");
         for(Eset eset: esetek2){
             ofile2<<eset.charChain<<" "<<eset.osszesEset<<" "<<eset.pozitivEset<<" "<<eset.pozitivEset/eset.osszesEset<<" "<<eset.szum<<" "<<eset.prod<<endl;
         }
@@ -1334,7 +1334,7 @@ int main(){
     ///reszvenyek.clear();
 
 
-    bool pozitivTest=true;
+    bool pozitivTest=false;
     if (pozitivTest){
         const int napszam=10;
         float osszesEset[napszam];
@@ -1382,8 +1382,8 @@ int main(){
                 }
                 for (int k=0; k<napszam; k++){
                     osszesEset[k]++;
-                    if (reszvenyek[i].napok[j+k+1].zaras > reszvenyek[i].napok[j].zaras)
-                        pozitivEset[k]++;
+                    //if (reszvenyek[i].napok[j+k+1].zaras > reszvenyek[i].napok[j].zaras)
+                    pozitivEset[k]+= (reszvenyek[i].napok[j+k+1].zaras/reszvenyek[i].napok[j].zaras)-1.0f;
                 }
             }
             for (int k=0; k<napszam; k++){

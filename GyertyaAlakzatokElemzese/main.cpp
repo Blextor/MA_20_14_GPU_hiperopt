@@ -46,8 +46,8 @@ int main()
 
     bool histo = true;
     if (true){
-        ifstream ifile("esetek1_3+20.txt");
-        ofstream ofile("esetek1_3+20_histo.txt");
+        ifstream ifile("esetek2_3_2020.txt");
+        ofstream ofile("esetek2_3_2020_histo.txt");
         vector<float> csoportok(100,0);
         int k=0;
         while (!ifile.eof()){

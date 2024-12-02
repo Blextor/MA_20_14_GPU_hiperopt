@@ -1564,23 +1564,23 @@ int main(){
 
             vector<vector<Par2>> parok(reszvenyekGPU.size());
             for (int i=0; i<reszvenyekGPU.size(); i++){
-                vector<float> minimumok(3,10000);
+                vector<float> minimumok(3,0);
                 vector<float> minIdx(3,-1);
                 for (int j=0; j<reszvenyekGPU.size(); j++){
                     if (hasonlosagok[i][j]==42) continue;
-                    if (hasonlosagok[i][j]<minimumok[2]){
+                    if (hasonlosagok[i][j]>minimumok[2]){
                         minimumok[0]=minimumok[1];
                         minimumok[1]=minimumok[2];
                         minimumok[2]=hasonlosagok[i][j];
                         minIdx[0]=minIdx[1];
                         minIdx[1]=minIdx[2];
                         minIdx[2]=j;
-                    } else if (hasonlosagok[i][j]<minimumok[1]){
+                    } else if (hasonlosagok[i][j]>minimumok[1]){
                         minimumok[0]=minimumok[1];
                         minimumok[1]=hasonlosagok[i][j];
                         minIdx[0]=minIdx[1];
                         minIdx[1]=j;
-                    } else if (hasonlosagok[i][j]<minimumok[0]){
+                    } else if (hasonlosagok[i][j]>minimumok[0]){
                         minimumok[0]=hasonlosagok[i][j];
                         minIdx[0]=j;
                     }
@@ -1599,7 +1599,7 @@ int main(){
                     if (i==j) continue;
                     float ui = reszvenyekGPU[j].mozgoatlagokZaras[iend-vizsgaltIdo]-reszvenyekGPU[j].mozgoatlagokZaras[iend-vizsgaltIdo-eltolas];
                     float ert = reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo+eltolas]/reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo];
-                    //if (ui>0)
+                    if (ui>0)
                         ert = 1.0f/ert;
                     Par2 par; par.ertek=hasonlosagok[i][j]; par.sorszam=ert;
                     parok[i].push_back(par);
@@ -1619,14 +1619,14 @@ int main(){
                 ///cout<<endl;
             }
 
-            for (int i=0; i<parok.size(); i++) sort(parok[i].begin(), parok[i].end());
+            for (int i=0; i<parok.size(); i++) {sort(parok[i].begin(), parok[i].end()); reverse(parok[i].begin(), parok[i].end());}
             vector<vector<Par2>> topParok(3);
             for (int i=0; i<parok.size(); i++){
                 topParok[0].push_back(parok[i][0]);
                 topParok[1].push_back(parok[i][1]);
                 topParok[2].push_back(parok[i][2]);
             }
-            for (int i=0; i<topParok.size(); i++) sort(topParok[i].begin(), topParok[i].end());
+            for (int i=0; i<topParok.size(); i++) {sort(topParok[i].begin(), topParok[i].end()); reverse(topParok[i].begin(), topParok[i].end());}
             float topok[5]={200,100,40,10,5};
             for (int k=0; k<5; k++){
                 float s1=0, s2=0, s3=0;
@@ -1639,7 +1639,7 @@ int main(){
             }
 
         }
-        ofstream ofileVegso("hasonloakVegso_4000-6050_5_fullSell2.txt");
+        ofstream ofileVegso("hasonloakVegso_4000-6050_5r_inReverse2.txt");
         for (int i=0; i<vegsoErtekek.size(); i++){
             ofileVegso<<reszvenyekGPU[0].mozgoatlagokDatum[start+i]<<" "<<start+i<<" ";
             for (int k=0; k<15; k++) ofileVegso<<vegsoErtekek[i][k]<<" ";

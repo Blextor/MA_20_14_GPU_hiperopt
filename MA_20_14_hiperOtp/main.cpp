@@ -1399,7 +1399,7 @@ int main(){
 
     cout<<reszvenyekGPU[0].mozgoatlagokDatum[6037]<<" "<<reszvenyekGPU[0].mozgoatlagokDatum[6047]<<endl;
     cout<<reszvenyekGPU[0].mozgoatlagokDatum[6037+126]<<" "<<reszvenyekGPU[0].mozgoatlagokDatum[6047+126]<<endl;
-    bool hasonloTestMin=false;
+    bool hasonloTestMin=true;
     if (hasonloTestMin){ /// 6037 - 6182,
         int istart = 6037, iend = 6182;
         int hossz = iend-istart;
@@ -1474,11 +1474,11 @@ int main(){
             if (a<0) hm[0] = reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo+eltolas]/reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo];
             //else
             hm[0] = reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo+eltolas]/reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo];
-            if (a<0) hm[0]=1.0f/hm[0];
+            if (a<0) hm[0]=1.0f+(1.0f-hm[0]);
             hm[1] = reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo+eltolas]/reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo];
-            if (b<0) hm[1]=1.0f/hm[1];
+            if (b<0) hm[1]=1.0f+(1.0f-hm[1]);
             hm[2] = reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo+eltolas]/reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo];
-            if (c<0) hm[2]=1.0f/hm[2];
+            if (c<0) hm[2]=1.0f+(1.0f-hm[2]);
             cout<<reszvenyekGPU[i].nev<<" ";
             for (int k=0; k<3;k++) cout<<reszvenyekGPU[minIdx[k]].nev<<" "<<minimumok[k]<<" "<<hm[k]<<" ";
             cout<<endl;
@@ -1489,7 +1489,7 @@ int main(){
     }
 
 
-    bool hasonloTestMinTobbNap=true;
+    bool hasonloTestMinTobbNap=false;
     if (hasonloTestMinTobbNap){ /// 6037 - 6182,
         int start = 4000;
         vector<vector<float>> vegsoErtekek(6050-start,vector<float>(15));
@@ -1504,7 +1504,7 @@ int main(){
             for (int i=0; i<reszvenyekGPU.size(); i++){
                 ///cout<<"I: "<<i<<endl;
                 vector<float> normaltArfolyam;
-                float arfMin = 0, arfMax = 0;
+                float arfMin = 100000, arfMax = 0;
 
                 for (int j=istart+eltolas; j<=iend-vizsgaltIdo; j++){
                     arfMax=max(reszvenyekGPU[i].mozgoatlagokZaras[j],arfMax);
@@ -1533,10 +1533,10 @@ int main(){
                 for (int j=0; j<reszvenyekGPU.size(); j++){
                     baj=false;
                     vector<float> normaltMasikArfolyam;
-                    float minSzum = 0;
+                    float minSzum = 100000;
                     for (int z=0; z<1; z++){
                         normaltMasikArfolyam.clear();
-                        float arfMin2 = 0, arfMax2 = 0;
+                        float arfMin2 = 100000, arfMax2 = 0;
                         for (int k=istart+z; k<=iend-vizsgaltIdo-eltolas+z; k++){
                             arfMax2=max(reszvenyekGPU[j].mozgoatlagokZaras[k],arfMax2);
                             arfMin2=min(reszvenyekGPU[j].mozgoatlagokZaras[k],arfMin2);
@@ -1549,6 +1549,7 @@ int main(){
                             else {baj=true; break;}
                         }
                         if (baj) {
+                            ///cout<<"baj ";
                             minSzum=420;
                             continue;
                         }
@@ -1556,11 +1557,18 @@ int main(){
                         float szum = 0;
                         for (int k=0; k<normaltMasikArfolyam.size(); k++){
                             szum+=fabs(normaltArfolyam[k]-normaltMasikArfolyam[k]);
+                            if (szum==0){
+                                ///cout<<"sz "<<normaltArfolyam[k]<<" "<<normaltMasikArfolyam[k]<<endl;
+                            }
                         }
+                        ///if (szum==0) cout<<normaltMasikArfolyam.size()<<endl;
+                        ///cout<<",m: "<<minSzum<<": "<<szum<<" ";
+                        if (szum==0) szum=420;
                         minSzum = min(minSzum,szum);
                     }
                     if (i==j) hasonlosagok[i].push_back(420);
                     else hasonlosagok[i].push_back(minSzum);
+                    ///cout<<minSzum<<" "<<hasonlosagok[i].back()<<" "<<baj<<endl;
                 }
             }
 
@@ -1615,8 +1623,8 @@ int main(){
                     if (i==j) continue;
                     float ui = reszvenyekGPU[j].mozgoatlagokZaras[iend-vizsgaltIdo]-reszvenyekGPU[j].mozgoatlagokZaras[iend-vizsgaltIdo-eltolas];
                     float ert = reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo+eltolas]/reszvenyekGPU[i].mozgoatlagokZaras[iend-vizsgaltIdo];
-                    if (ui<0)
-                        ert = 1.0f/ert;
+                    ///if (ui>0)
+                        ///ert = 1.0f/ert;
                     Par2 par; par.ertek=hasonlosagok[i][j]; par.sorszam=ert;
                     parok[i].push_back(par);
                 }
@@ -1661,7 +1669,7 @@ int main(){
             }
 
         }
-        ofstream ofileVegso("hasonloakVegso_4000-6050_5_inOrder3.txt");
+        ofstream ofileVegso("hasonloakVegso_4000-6050_5_fullBuy3.txt");
         for (int i=0; i<vegsoErtekek.size(); i++){
             ofileVegso<<reszvenyekGPU[0].mozgoatlagokDatum[start+i]<<" "<<start+i<<" ";
             for (int k=0; k<15; k++) ofileVegso<<vegsoErtekek[i][k]<<" ";

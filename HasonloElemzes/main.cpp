@@ -33,7 +33,7 @@ struct Par2{
 
 int main()
 {
-    ifstream ifile("hasonlok_201_s.txt");
+    ifstream ifile("hasonlok_203_o.txt");
 
     vector<vector<float>> k1, k2, k3;
     while(!ifile.eof()){
@@ -59,7 +59,7 @@ int main()
     }
 
     vector<vector<float>> v;
-    ofstream ofile("hasonlok_s1.txt");
+    ofstream ofile("hasonlok_o3.txt");
     for (int i=0; i<k1.size(); i++){
         vector<float> temp;
         float ertekek[5]= {200,100,40,10,5};

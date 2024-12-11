@@ -75,7 +75,8 @@ void findStockFiles(const std::unordered_set<std::string>& stockNames, const std
 /// Függvény, ami összegyűjti a részvények adatait tároló fájlok elérési útvonalát
 vector<string> reszvenyekEleresiUtja(string fname="stocks.txt", string folder="data"){
     std::string stockListFile = fname; // A részvény nevek fájlja
-    std::unordered_set<std::string> stockNames = readStockNames(stockListFile);
+    stringstream ss; ss<<"C:\\stockData\\daily\\groups\\"<<fname;
+    std::unordered_set<std::string> stockNames = readStockNames(ss.str());
 
     std::vector<std::string> foundFiles;
 
@@ -86,17 +87,17 @@ vector<string> reszvenyekEleresiUtja(string fname="stocks.txt", string folder="d
 
 
     std::vector<std::string> directories = {
-        "\\daily\\us\\nasdaq stocks\\1",
-        "\\daily\\us\\nasdaq stocks\\2",
-        "\\daily\\us\\nasdaq stocks\\3",
-        "\\daily\\us\\nyse stocks\\1",
-        "\\daily\\us\\nyse stocks\\2"
+        "C:\\stockData\\daily\\us\\nasdaq stocks\\1",
+        "C:\\stockData\\daily\\us\\nasdaq stocks\\2",
+        "C:\\stockData\\daily\\us\\nasdaq stocks\\3",
+        "C:\\stockData\\daily\\us\\nyse stocks\\1",
+        "C:\\stockData\\daily\\us\\nyse stocks\\2"
     };
 
     // Végigmegyünk az összes mappán és megkeressük a fájlokat.
     for (const auto& dir : directories) {
-        stringstream ss; ss<<folder<<dir;
-        findStockFiles(stockNames, ss.str(), foundFiles);
+        ///stringstream ss; ss<<folder<<dir;
+        findStockFiles(stockNames, dir, foundFiles);
     }
 
     // Kiírjuk az összegyûjtött fájlok elérési útvonalait.
@@ -1218,7 +1219,7 @@ vector<ReszvenyGPU> getReszvenyekGPU(vector<Reszveny>& reszvenyek,vector<Datum>&
 
 int main(){
     clock_t fullT = clock();
-    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("etoroStocks.txt","data");
+    vector<string> reszvenyekFajlNeve = reszvenyekEleresiUtja("errorLessEtoro.txt","data");
     vector<Reszveny> reszvenyek = reszvenyekParhuzamosBetoltese(reszvenyekFajlNeve);
     vector<Datum> osszesDatum = getOsszesDatum(reszvenyek);
     clock_t time0 = clock();
@@ -2011,7 +2012,7 @@ int main(){
     vector<Parameterek> parameterekMA;
     for (int i1=3; i1<=21; i1++){
         for (int i2=i1+1; i2<49; i2++){
-            for (int i3=i2+1; i3<=49; i3+=2){
+            for (int i3=i2+1; i3<=49; i3++){
                 Parameterek params; params.m1=i1; params.m2=i2; params.m3=i3;
                 parameterekMA.push_back(params);
                 cnt2++;
@@ -2019,7 +2020,7 @@ int main(){
         }
     }
 
-    //cout<<parameterekMA.size()<<endl;
+    cout<<parameterekMA.size()<<endl;
     //return 0;
 
 
@@ -2142,16 +2143,27 @@ int main(){
 
     vector<Score> scoresAll;
 
-    vector<Parameterek> ptemps(parameterekMA.size()-4400);
-    for (int i=4400; i<parameterekMA.size(); i++)
-        ptemps[i-4400]=parameterekMA[i];
-    parameterekMA = ptemps;
-    /**
-    vector<Parameterek> ptemps(2200);
-    for (int i=2200; i<4400; i++)
-        ptemps[i-2200]=parameterekMA[i];
-    parameterekMA = ptemps;
-    */
+    string savedFileName =      "8000_10000_NewSaves.txt";
+    string saveAllPozFileName = "8000_10000_AllSavePoz.txt";
+    string saveAllNegFileName = "8000_10000_AllSaveNeg.txt";
+    ofstream allPozOFile(saveAllPozFileName);
+    ofstream allNegOFile(saveAllNegFileName);
+    bool chunkIn = true;
+    if (!chunkIn){
+        vector<Parameterek> ptemps(parameterekMA.size()-12000);
+        for (int i=12000; i<parameterekMA.size(); i++)
+            ptemps[i-12000]=parameterekMA[i];
+        parameterekMA = ptemps;
+    }
+
+    if (chunkIn){
+        int lsize = 2000;
+        int from = 4;
+        vector<Parameterek> ptemps(lsize);
+        for (int i=from*lsize; i<from*lsize+lsize; i++)
+            ptemps[i-from*lsize]=parameterekMA[i];
+        parameterekMA = ptemps;
+    }
 
     list<Score> ertekek; ertekek.resize(thCnt);
     cout<<"CNT: "<<cnt<<" "<<parameterekMA.size()<<endl;
@@ -2161,7 +2173,7 @@ int main(){
     vector<vector<Score>> allScores(thCnt,vector<Score>(4800*4));
     vector<Score> saved;
     float maxProfNap = 0.0f, maxProfAtl = 0.0f, maxProf = 0.0f, minLoss = 2.0f, maxVeg = 0.0f, minVeg = 10000.0f;
-    int plusCnt = 0;
+    int plusCnt = 0; int negCnt = 0;
     for (size_t i=0; i<parameterekMA.size();){
         int savedI = i;
         for (int j=0; j<thCnt; j++){
@@ -2187,7 +2199,7 @@ int main(){
                 szalak[j].join();
             //if ((savedI+j)%1000==0)
             if (clock()-t2>=5000){
-                cout<<savedI+j<<", saved: "<<saved.size()<<", "<<clock()-t2<<" i "<<ts<<" - "<<(float)(clock()-t3)/(float)(savedI+j-0)<<endl;
+                cout<<savedI+j<<", saved: "<<saved.size()<<", "<<clock()-t2<<" i "<<ts<<" - "<<(float)(clock()-t3)/(float)(savedI+j-0)<<", Pos: "<<plusCnt<<", Neg: "<<negCnt<<endl;
                 t2=clock();
             }
             //cout<<"KOK"<<endl;
@@ -2208,41 +2220,52 @@ int main(){
                     if (score.evVegiek[24]>10000){
                         plusCnt++;
                         if (plusCnt%1000==0) cout<<"plusCnt "<<plusCnt<<endl;
+
+                        score.op(allPozOFile);
+                        score.opt(allPozOFile);
+                    }
+
+                    if (score.evVegiek[24]<1){
+                        negCnt++;
+                        if (negCnt%1000==0) cout<<"negCnt "<<negCnt<<endl;
+
+                        score.op(allNegOFile);
+                        score.opt(allNegOFile);
                     }
 
                     bool toSave = false;
                     if (maxProfNap<score.atlagosNapiProfit){
-                        cout<<"NAP"<<" "<<plusCnt<<endl;
+                        cout<<"NAP"<<" "<<plusCnt<<" "<<negCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         maxProfNap=score.atlagosNapiProfit;
                         toSave = true;
                     }
                     if (maxProfAtl<score.atlagosProfit){
-                        cout<<"ATL"<<" "<<plusCnt<<endl;
+                        cout<<"ATL"<<" "<<plusCnt<<" "<<negCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         maxProfAtl=score.atlagosProfit;
                         toSave = true;
                     }
                     if (maxProf<score.maxLoss){
-                        cout<<"PROF"<<" "<<plusCnt<<endl;
+                        cout<<"PROF"<<" "<<plusCnt<<" "<<negCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         maxProf=score.maxLoss;
                         toSave = true;
                     }
                     if (minLoss>score.minProfit){
-                        cout<<"LOSS"<<" "<<plusCnt<<endl;
+                        cout<<"LOSS"<<" "<<plusCnt<<" "<<negCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         minLoss=score.minProfit;
                         toSave = true;
                     }
                     if (minVeg>score.evVegiek[24]){
-                        cout<<"MIN"<<" "<<plusCnt<<endl;
+                        cout<<"MIN"<<" "<<plusCnt<<" "<<negCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         minVeg=score.evVegiek[24];
                         toSave = true;
                     }
                     if (maxVeg<score.evVegiek[24]){
-                        cout<<"MAX"<<" "<<plusCnt<<endl;
+                        cout<<"MAX"<<" "<<plusCnt<<" "<<negCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         maxVeg=score.evVegiek[24];
                         toSave = true;
@@ -2301,7 +2324,7 @@ int main(){
     }
     ///system("cls");
 
-    ofstream of("6600VeT2.txt");
+    ofstream of(savedFileName);
     for (int i=0; i<saved.size(); i++){
         saved[i].op(of);
         saved[i].opt(of);

@@ -20,6 +20,7 @@
 #include <functional>
 #include <atomic>
 
+
 using namespace std;
 
 /// Függvény, amely beolvassa a "stocks.txt" fájlból a részvény neveket egy set-be.
@@ -2160,6 +2161,7 @@ int main(){
     vector<vector<Score>> allScores(thCnt,vector<Score>(4800*4));
     vector<Score> saved;
     float maxProfNap = 0.0f, maxProfAtl = 0.0f, maxProf = 0.0f, minLoss = 2.0f, maxVeg = 0.0f, minVeg = 10000.0f;
+    int plusCnt = 0;
     for (size_t i=0; i<parameterekMA.size();){
         int savedI = i;
         for (int j=0; j<thCnt; j++){
@@ -2202,39 +2204,45 @@ int main(){
 
                 Score score = allScores[j][i];
                 if (score.evVegiek[24]>10000 || score.evVegiek[24]<1){
+
+                    if (score.evVegiek[24]>10000){
+                        plusCnt++;
+                        if (plusCnt%1000==0) cout<<"plusCnt "<<plusCnt<<endl;
+                    }
+
                     bool toSave = false;
                     if (maxProfNap<score.atlagosNapiProfit){
-                        cout<<"NAP"<<endl;
+                        cout<<"NAP"<<" "<<plusCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         maxProfNap=score.atlagosNapiProfit;
                         toSave = true;
                     }
                     if (maxProfAtl<score.atlagosProfit){
-                        cout<<"ATL"<<endl;
+                        cout<<"ATL"<<" "<<plusCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         maxProfAtl=score.atlagosProfit;
                         toSave = true;
                     }
                     if (maxProf<score.maxLoss){
-                        cout<<"PROF"<<endl;
+                        cout<<"PROF"<<" "<<plusCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         maxProf=score.maxLoss;
                         toSave = true;
                     }
                     if (minLoss>score.minProfit){
-                        cout<<"LOSS"<<endl;
+                        cout<<"LOSS"<<" "<<plusCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         minLoss=score.minProfit;
                         toSave = true;
                     }
                     if (minVeg>score.evVegiek[24]){
-                        cout<<"MIN"<<endl;
+                        cout<<"MIN"<<" "<<plusCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         minVeg=score.evVegiek[24];
                         toSave = true;
                     }
                     if (maxVeg<score.evVegiek[24]){
-                        cout<<"MAX"<<endl;
+                        cout<<"MAX"<<" "<<plusCnt<<endl;
                         cout<<saved.size()<<" "; score.print();
                         maxVeg=score.evVegiek[24];
                         toSave = true;

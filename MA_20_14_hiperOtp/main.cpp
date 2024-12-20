@@ -2053,7 +2053,7 @@ int main(){
                 } else if (i<24)
                     minmax1= min(score.evVegiek[i]/score.evVegiek[i-1],minmax1);
                 else {
-                    minmax1= min(score.teljes[6225]/score.evVegiek[i-1],minmax1);
+                    minmax1= min(score.teljes[reszvenyekGPU[0].N]/score.evVegiek[i-1],minmax1);
                 }
             }
             oftest<<endl;
@@ -2143,12 +2143,12 @@ int main(){
 
     vector<Score> scoresAll;
 
-    string savedFileName =      "8000_10000_NewSaves.txt";
-    string saveAllPozFileName = "8000_10000_AllSavePoz.txt";
-    string saveAllNegFileName = "8000_10000_AllSaveNeg.txt";
+    string savedFileName =      "12000_13000_NewSaves.txt";
+    string saveAllPozFileName = "12000_13000_AllSavePoz.txt";
+    string saveAllNegFileName = "12000_13000_AllSaveNeg.txt";
     ofstream allPozOFile(saveAllPozFileName);
     ofstream allNegOFile(saveAllNegFileName);
-    bool chunkIn = true;
+    bool chunkIn = false;
     if (!chunkIn){
         vector<Parameterek> ptemps(parameterekMA.size()-12000);
         for (int i=12000; i<parameterekMA.size(); i++)
@@ -2158,7 +2158,7 @@ int main(){
 
     if (chunkIn){
         int lsize = 2000;
-        int from = 4;
+        int from = 5;
         vector<Parameterek> ptemps(lsize);
         for (int i=from*lsize; i<from*lsize+lsize; i++)
             ptemps[i-from*lsize]=parameterekMA[i];
@@ -2173,6 +2173,8 @@ int main(){
     vector<vector<Score>> allScores(thCnt,vector<Score>(4800*4));
     vector<Score> saved;
     float maxProfNap = 0.0f, maxProfAtl = 0.0f, maxProf = 0.0f, minLoss = 2.0f, maxVeg = 0.0f, minVeg = 10000.0f;
+    cout<<"N: "<<reszvenyekGPU[0].N<<endl;
+    int fullDatumSize=reszvenyekGPU[0].N;
     int plusCnt = 0; int negCnt = 0;
     for (size_t i=0; i<parameterekMA.size();){
         int savedI = i;
@@ -2212,7 +2214,7 @@ int main(){
 
             /// EZ KELL!!!
             for (int i=0; i<allScores[j].size(); i++){
-                if (allScores[j][i].teljes.size()!=6225) continue;
+                if (allScores[j][i].teljes.size()!=fullDatumSize) {continue;}
 
                 Score score = allScores[j][i];
                 if (score.evVegiek[24]>10000 || score.evVegiek[24]<1){
